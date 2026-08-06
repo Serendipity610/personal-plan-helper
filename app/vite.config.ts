@@ -12,6 +12,8 @@ export default defineConfig({
   // Prevent vite from obscuring rust errors
   clearScreen: false,
   server: {
+    // Bind to IPv4 to match Tauri's devUrl
+    host: "127.0.0.1",
     // Tauri expects a fixed port; fail if that port is not available
     strictPort: true,
   },
