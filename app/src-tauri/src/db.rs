@@ -32,7 +32,7 @@ impl Database {
     /// Each migration is applied in a transaction and increments user_version.
     /// New migrations are appended here and keyed by version number; existing
     /// databases skip already-applied versions on restart.
-    fn run_migrations(&self) -> SqliteResult<()> {
+    pub(crate) fn run_migrations(&self) -> SqliteResult<()> {
         let conn = self.conn.lock().unwrap();
 
         let current_version: i32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
