@@ -57,15 +57,10 @@ function App() {
         ) : (
           <div className="space-y-2">
             {plans.map((plan) => (
-              <div
-                key={plan.id}
-                className="bg-card rounded-lg border p-4 flex items-center gap-4"
-              >
+              <div key={plan.id} className="bg-card rounded-lg border p-4 flex items-center gap-4">
                 <div className="flex-1">
                   <h3 className="font-medium">{plan.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {plan.description || "无描述"}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{plan.description || "无描述"}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2 py-1 rounded bg-secondary">
@@ -109,14 +104,9 @@ function App() {
         ) : (
           <div className="space-y-2">
             {workflows.map((wf) => (
-              <div
-                key={wf.id}
-                className="bg-card rounded-lg border p-4"
-              >
+              <div key={wf.id} className="bg-card rounded-lg border p-4">
                 <h3 className="font-medium">{wf.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  步骤: {wf.steps}
-                </p>
+                <p className="text-sm text-muted-foreground">步骤: {wf.steps}</p>
               </div>
             ))}
           </div>

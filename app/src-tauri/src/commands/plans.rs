@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::models::{CreatePlanRequest, Plan, UpdatePlanRequest};
+use rusqlite::types::ToSql;
 use tauri::State;
 
 /// Create a new plan
@@ -41,74 +42,71 @@ pub fn get_plan(db: State<'_, Database>, id: String) -> Result<Plan, String> {
     get_plan_internal(&conn, &id)
 }
 
-/// Update an existing plan
+/// Update an existing plan.
+/// Fields use tri-state Option<Option<T>>:
+///   - outer None        → field not in JSON → skip
+///   - outer Some(None)  → explicit null → clear to NULL
+///   - outer Some(Some)  → set to value
 #[tauri::command]
 pub fn update_plan(db: State<'_, Database>, request: UpdatePlanRequest) -> Result<Plan, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Build dynamic UPDATE statement based on provided fields
     let mut sets: Vec<String> = Vec::new();
-    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut params: Vec<Box<dyn ToSql>> = Vec::new();
 
-    if let Some(title) = request.title {
+    // Simple optional fields — Some(v) = set, None = skip
+    if let Some(v) = request.title {
         sets.push(format!("title = ?{}", sets.len() + 1));
-        params.push(Box::new(title));
+        params.push(Box::new(v));
     }
-    if let Some(description) = request.description {
+    if let Some(v) = request.description {
         sets.push(format!("description = ?{}", sets.len() + 1));
-        params.push(Box::new(description));
+        params.push(Box::new(v));
     }
-    if let Some(category_id) = request.category_id {
-        sets.push(format!("category_id = ?{}", sets.len() + 1));
-        params.push(Box::new(category_id));
-    }
-    if let Some(parent_id) = request.parent_id {
-        sets.push(format!("parent_id = ?{}", sets.len() + 1));
-        params.push(Box::new(parent_id));
-    }
-    if let Some(importance) = request.importance {
+    if let Some(v) = request.importance {
         sets.push(format!("importance = ?{}", sets.len() + 1));
-        params.push(Box::new(importance));
+        params.push(Box::new(v));
     }
-    if let Some(urgency) = request.urgency {
+    if let Some(v) = request.urgency {
         sets.push(format!("urgency = ?{}", sets.len() + 1));
-        params.push(Box::new(urgency));
+        params.push(Box::new(v));
     }
-    if let Some(ddl) = request.ddl {
-        sets.push(format!("ddl = ?{}", sets.len() + 1));
-        params.push(Box::new(ddl));
-    }
-    if let Some(tag_workflow_id) = request.tag_workflow_id {
-        sets.push(format!("tag_workflow_id = ?{}", sets.len() + 1));
-        params.push(Box::new(tag_workflow_id));
-    }
-    if let Some(current_step_index) = request.current_step_index {
+    if let Some(v) = request.current_step_index {
         sets.push(format!("current_step_index = ?{}", sets.len() + 1));
-        params.push(Box::new(current_step_index));
+        params.push(Box::new(v));
     }
-    if let Some(period_type) = request.period_type {
-        sets.push(format!("period_type = ?{}", sets.len() + 1));
-        params.push(Box::new(period_type));
-    }
-    if let Some(period_value) = request.period_value {
-        sets.push(format!("period_value = ?{}", sets.len() + 1));
-        params.push(Box::new(period_value));
-    }
-    if let Some(status) = request.status {
+    if let Some(v) = request.status {
         sets.push(format!("status = ?{}", sets.len() + 1));
-        params.push(Box::new(status));
+        params.push(Box::new(v));
     }
+
+    // Nullable fields — tri-state: absent / null (clear) / value (set)
+    apply_nullable(&mut sets, &mut params, "category_id", &request.category_id);
+    apply_nullable(&mut sets, &mut params, "parent_id", &request.parent_id);
+    apply_nullable(&mut sets, &mut params, "ddl", &request.ddl);
+    apply_nullable(
+        &mut sets,
+        &mut params,
+        "tag_workflow_id",
+        &request.tag_workflow_id,
+    );
+    apply_nullable(&mut sets, &mut params, "period_type", &request.period_type);
+    apply_nullable(
+        &mut sets,
+        &mut params,
+        "period_value",
+        &request.period_value,
+    );
 
     if sets.is_empty() {
         return get_plan_internal(&conn, &request.id);
     }
 
-    // Always update updated_at
+    // Always bump updated_at
     sets.push(format!("updated_at = ?{}", sets.len() + 1));
     params.push(Box::new(now));
 
-    // Add id as the last param
     let id_idx = sets.len() + 1;
     params.push(Box::new(request.id.clone()));
 
@@ -118,7 +116,7 @@ pub fn update_plan(db: State<'_, Database>, request: UpdatePlanRequest) -> Resul
         id_idx
     );
 
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let param_refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
     conn.execute(&sql, param_refs.as_slice())
         .map_err(|e| e.to_string())?;
 
@@ -135,26 +133,36 @@ pub fn delete_plan(db: State<'_, Database>, id: String) -> Result<bool, String> 
     Ok(affected > 0)
 }
 
-/// List all plans, optionally filtered by status
+/// List all plans, optionally filtered by status and/or category_id
 #[tauri::command]
-pub fn list_plans(db: State<'_, Database>, status: Option<String>) -> Result<Vec<Plan>, String> {
+pub fn list_plans(
+    db: State<'_, Database>,
+    status: Option<String>,
+    category_id: Option<String>,
+) -> Result<Vec<Plan>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    let (sql, params): (String, Vec<String>) = if let Some(s) = status {
-        (
-            "SELECT id, title, description, category_id, parent_id, importance, urgency, ddl, tag_workflow_id, current_step_index, period_type, period_value, status, created_at, updated_at FROM plans WHERE status = ?1 ORDER BY created_at DESC".to_string(),
-            vec![s],
-        )
-    } else {
-        (
-            "SELECT id, title, description, category_id, parent_id, importance, urgency, ddl, tag_workflow_id, current_step_index, period_type, period_value, status, created_at, updated_at FROM plans ORDER BY created_at DESC".to_string(),
-            vec![],
-        )
-    };
+    let base_sql = "SELECT id, title, description, category_id, parent_id, \
+                    importance, urgency, ddl, tag_workflow_id, current_step_index, \
+                    period_type, period_value, status, created_at, updated_at \
+                    FROM plans WHERE 1=1";
+    let mut clauses = Vec::new();
+    let mut params: Vec<String> = Vec::new();
 
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+    if let Some(ref s) = status {
+        clauses.push(format!(" AND status = ?{}", params.len() + 1));
+        params.push(s.clone());
+    }
+    if let Some(ref c) = category_id {
+        clauses.push(format!(" AND category_id = ?{}", params.len() + 1));
+        params.push(c.clone());
+    }
+
+    let sql = format!("{}{} ORDER BY created_at DESC", base_sql, clauses.join(""));
+
+    let param_refs: Vec<&dyn ToSql> = params.iter().map(|s| s as &dyn ToSql).collect();
+
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-
     let plans = stmt
         .query_map(param_refs.as_slice(), row_to_plan)
         .map_err(|e| e.to_string())?
@@ -165,6 +173,28 @@ pub fn list_plans(db: State<'_, Database>, status: Option<String>) -> Result<Vec
 }
 
 // --- Internal helpers ---
+
+/// Apply a tri-state nullable field to the UPDATE clause.
+fn apply_nullable(
+    sets: &mut Vec<String>,
+    params: &mut Vec<Box<dyn ToSql>>,
+    col: &str,
+    field: &Option<Option<String>>,
+) {
+    match field {
+        None => {} // key absent — skip
+        Some(None) => {
+            // explicit null — clear to NULL
+            sets.push(format!("{} = ?{}", col, params.len() + 1));
+            params.push(Box::new(None::<String>));
+        }
+        Some(Some(v)) => {
+            // value — set
+            sets.push(format!("{} = ?{}", col, params.len() + 1));
+            params.push(Box::new(v.clone()));
+        }
+    }
+}
 
 fn get_plan_internal(conn: &rusqlite::Connection, id: &str) -> Result<Plan, String> {
     conn.query_row(
@@ -193,4 +223,43 @@ fn row_to_plan(row: &rusqlite::Row) -> rusqlite::Result<Plan> {
         created_at: row.get(13)?,
         updated_at: row.get(14)?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_nullable_absent() {
+        let mut sets = Vec::new();
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        // outer None = key absent
+        apply_nullable(&mut sets, &mut params, "ddl", &None);
+        assert!(sets.is_empty());
+    }
+
+    #[test]
+    fn test_apply_nullable_clear() {
+        let mut sets = Vec::new();
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        // Some(None) = explicit null → clear
+        apply_nullable(&mut sets, &mut params, "ddl", &Some(None));
+        assert_eq!(sets.len(), 1);
+        assert!(sets[0].contains("ddl"));
+    }
+
+    #[test]
+    fn test_apply_nullable_set() {
+        let mut sets = Vec::new();
+        let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+        // Some(Some(v)) = set value
+        apply_nullable(
+            &mut sets,
+            &mut params,
+            "ddl",
+            &Some(Some("2026-12-31T00:00:00Z".to_string())),
+        );
+        assert_eq!(sets.len(), 1);
+        assert!(sets[0].contains("ddl"));
+    }
 }
