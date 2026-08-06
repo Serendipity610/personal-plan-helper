@@ -92,10 +92,8 @@ mod tests {
 
     fn make_db() -> Database {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_pragma(None, "journal_mode", "WAL", |_| Ok(()))
-            .unwrap();
-        conn.execute_pragma(None, "foreign_keys", "ON", |_| Ok(()))
-            .unwrap();
+        conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
 
         // Run migrations so tables exist
         let db = Database {

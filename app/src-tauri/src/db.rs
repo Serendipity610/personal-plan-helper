@@ -17,8 +17,8 @@ impl Database {
         let conn = Connection::open(&db_path)?;
 
         // Enable WAL mode for better concurrent read performance
-        conn.execute_pragma(None, "journal_mode", "WAL", |_| Ok(()))?;
-        conn.execute_pragma(None, "foreign_keys", "ON", |_| Ok(()))?;
+        conn.pragma_update(None, "journal_mode", "WAL")?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
 
         let db = Database {
             conn: Mutex::new(conn),
