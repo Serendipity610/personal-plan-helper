@@ -27,55 +27,73 @@ impl Database {
         Ok(db)
     }
 
-    /// Create tables if they do not exist.
-    fn run_migrations(&self) -> SqliteResult<()> {
-        let conn = self.conn.lock().unwrap();
+    /// Run versioned migrations using PRAGMA user_version.
+    ///
+    /// Each migration is applied in a transaction and increments user_version.
+    /// New migrations are appended here and keyed by version number; existing
+    /// databases skip already-applied versions on restart.
+    pub(crate) fn run_migrations(&self) -> SqliteResult<()> {
+        let mut conn = self.conn.lock().unwrap();
 
-        conn.execute_batch(
-            "
-            CREATE TABLE IF NOT EXISTS categories (
-                id          TEXT PRIMARY KEY,
-                name        TEXT NOT NULL,
-                color       TEXT NOT NULL,
-                icon        TEXT DEFAULT '',
-                sort_order  INTEGER DEFAULT 0,
-                created_at  TEXT NOT NULL
-            );
+        let current_version: i32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
 
-            CREATE TABLE IF NOT EXISTS tag_workflows (
-                id          TEXT PRIMARY KEY,
-                name        TEXT NOT NULL,
-                steps       TEXT NOT NULL,
-                created_at  TEXT NOT NULL
-            );
+        // Migration 0 → 1: initial schema
+        if current_version < 1 {
+            let tx = conn.transaction()?;
+            tx.execute_batch(
+                "
+                CREATE TABLE IF NOT EXISTS categories (
+                    id          TEXT PRIMARY KEY,
+                    name        TEXT NOT NULL,
+                    color       TEXT NOT NULL,
+                    icon        TEXT DEFAULT '',
+                    sort_order  INTEGER DEFAULT 0,
+                    created_at  TEXT NOT NULL
+                );
 
-            CREATE TABLE IF NOT EXISTS plans (
-                id                  TEXT PRIMARY KEY,
-                title               TEXT NOT NULL,
-                description         TEXT DEFAULT '',
-                category_id         TEXT REFERENCES categories(id),
-                parent_id           TEXT REFERENCES plans(id),
-                importance          INTEGER NOT NULL DEFAULT 0 CHECK(importance BETWEEN 0 AND 4),
-                urgency             INTEGER NOT NULL DEFAULT 0 CHECK(urgency BETWEEN 0 AND 4),
-                ddl                 TEXT,
-                tag_workflow_id     TEXT REFERENCES tag_workflows(id),
-                current_step_index  INTEGER DEFAULT 0,
-                period_type         TEXT CHECK(period_type IN ('daily','monthly','quarterly','yearly')),
-                period_value        TEXT,
-                status              TEXT DEFAULT 'active' CHECK(status IN ('active','completed','cancelled')),
-                created_at          TEXT NOT NULL,
-                updated_at          TEXT NOT NULL
-            );
+                CREATE TABLE IF NOT EXISTS tag_workflows (
+                    id          TEXT PRIMARY KEY,
+                    name        TEXT NOT NULL,
+                    steps       TEXT NOT NULL,
+                    created_at  TEXT NOT NULL
+                );
 
-            CREATE TABLE IF NOT EXISTS plan_logs (
-                id          TEXT PRIMARY KEY,
-                plan_id     TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
-                action      TEXT NOT NULL,
-                detail      TEXT DEFAULT '',
-                created_at  TEXT NOT NULL
-            );
-            "
-        )?;
+                CREATE TABLE IF NOT EXISTS plans (
+                    id                  TEXT PRIMARY KEY,
+                    title               TEXT NOT NULL,
+                    description         TEXT DEFAULT '',
+                    category_id         TEXT REFERENCES categories(id),
+                    parent_id           TEXT REFERENCES plans(id),
+                    importance          INTEGER NOT NULL DEFAULT 0 CHECK(importance BETWEEN 0 AND 4),
+                    urgency             INTEGER NOT NULL DEFAULT 0 CHECK(urgency BETWEEN 0 AND 4),
+                    ddl                 TEXT,
+                    tag_workflow_id     TEXT REFERENCES tag_workflows(id),
+                    current_step_index  INTEGER DEFAULT 0,
+                    period_type         TEXT CHECK(period_type IN ('daily','monthly','quarterly','yearly')),
+                    period_value        TEXT,
+                    status              TEXT DEFAULT 'active' CHECK(status IN ('active','completed','cancelled')),
+                    created_at          TEXT NOT NULL,
+                    updated_at          TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS plan_logs (
+                    id          TEXT PRIMARY KEY,
+                    plan_id     TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+                    action      TEXT NOT NULL,
+                    detail      TEXT DEFAULT '',
+                    created_at  TEXT NOT NULL
+                );
+                ",
+            )?;
+            tx.pragma_update(None, "user_version", 1)?;
+            tx.commit()?;
+        }
+
+        // Migration 1 → 2: future schema changes go here
+        // if current_version < 2 {
+        //     conn.execute_batch("ALTER TABLE ...")?;
+        //     conn.pragma_update(None, "user_version", 2)?;
+        // }
 
         Ok(())
     }
