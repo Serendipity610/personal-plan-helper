@@ -32,14 +32,15 @@ impl Database {
     /// Each migration is applied in a transaction and increments user_version.
     /// New migrations are appended here and keyed by version number; existing
     /// databases skip already-applied versions on restart.
-    fn run_migrations(&self) -> SqliteResult<()> {
-        let conn = self.conn.lock().unwrap();
+    pub(crate) fn run_migrations(&self) -> SqliteResult<()> {
+        let mut conn = self.conn.lock().unwrap();
 
         let current_version: i32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
 
         // Migration 0 → 1: initial schema
         if current_version < 1 {
-            conn.execute_batch(
+            let tx = conn.transaction()?;
+            tx.execute_batch(
                 "
                 CREATE TABLE IF NOT EXISTS categories (
                     id          TEXT PRIMARY KEY,
@@ -84,7 +85,8 @@ impl Database {
                 );
                 ",
             )?;
-            conn.pragma_update(None, "user_version", 1)?;
+            tx.pragma_update(None, "user_version", 1)?;
+            tx.commit()?;
         }
 
         // Migration 1 → 2: future schema changes go here

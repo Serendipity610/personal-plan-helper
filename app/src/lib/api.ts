@@ -44,7 +44,7 @@ export async function listPlans(params?: {
 }): Promise<Plan[]> {
   return invoke("list_plans", {
     status: params?.status ?? null,
-    categoryId: params?.categoryId ?? null,
+    category_id: params?.categoryId ?? null,
   });
 }
 
