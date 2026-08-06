@@ -43,6 +43,7 @@ pub struct Plan {
 
 /// 操作日志
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct PlanLog {
     pub id: String,
     pub plan_id: String,
