@@ -62,11 +62,11 @@ pub fn run_seed(db: &Database) -> Result<(), String> {
         )?;
         conn.execute(
             "INSERT OR IGNORE INTO plans (id, title, description, category_id, importance, urgency, ddl, tag_workflow_id, current_step_index, status, created_at, updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,0,'active',?9,?9)",
-            rusqlite::params![PLAN_RUST, "学习 Rust 异步编程", "阅读 Tokio 官方教程", CAT_STUDY, 3, 2, "", "", now],
+            rusqlite::params![PLAN_RUST, "学习 Rust 异步编程", "阅读 Tokio 官方教程", CAT_STUDY, 3, 2, None::<String>, None::<String>, now],
         )?;
         conn.execute(
             "INSERT OR IGNORE INTO plans (id, title, description, category_id, importance, urgency, ddl, tag_workflow_id, current_step_index, status, created_at, updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,0,'active',?9,?9)",
-            rusqlite::params![PLAN_SPORT, "每周运动计划", "跑步 3 次，每次 30 分钟", CAT_PERSONAL, 2, 1, "", "", now],
+            rusqlite::params![PLAN_SPORT, "每周运动计划", "跑步 3 次，每次 30 分钟", CAT_PERSONAL, 2, 1, None::<String>, None::<String>, now],
         )?;
 
         Ok(())
