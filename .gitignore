@@ -1,0 +1,52 @@
+# ── Dependencies ────────────────────────────────────────────────
+node_modules/
+
+# ── Build output ─────────────────────────────────────────────────
+dist/
+dist-ssr/
+app/dist/
+
+# ── Tauri / Rust ─────────────────────────────────────────────────
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# ── IDE & Editors ────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS files ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Environment & Secrets ────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ── Logs ─────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ── Platform internals (excluded from version control) ───────────
+.agent_context/
+.claude/
+.multica/
+CLAUDE.md
+
+# ── External repos / checkouts ───────────────────────────────────
+personal-website/
+
+# ── Misc ─────────────────────────────────────────────────────────
+*.local
