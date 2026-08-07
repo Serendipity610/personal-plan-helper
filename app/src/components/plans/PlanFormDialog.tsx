@@ -42,10 +42,12 @@ const DEFAULT_VALUES: PlanFormValues = {
   ddl: null,
   periodType: null,
   periodValue: "",
+  tagWorkflowId: null,
 };
 
 export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
   const categories = useAppStore((s) => s.categories);
+  const tagWorkflows = useAppStore((s) => s.tagWorkflows);
   const addPlan = useAppStore((s) => s.addPlan);
   const editPlan = useAppStore((s) => s.editPlan);
 
@@ -79,6 +81,15 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
         importance: values.importance,
         urgency: values.urgency,
         ddl: values.ddl,
+        tag_workflow_id: values.tagWorkflowId,
+        // Only reset step to 0 when workflow is newly bound or changed;
+        // otherwise preserve existing progress when editing.
+        current_step_index:
+          isEdit && plan && values.tagWorkflowId === plan.tag_workflow_id
+            ? plan.current_step_index
+            : values.tagWorkflowId
+              ? 0
+              : 0,
         period_type: values.periodType ?? null,
         period_value: values.periodType ? values.periodValue || null : null,
       };
@@ -143,6 +154,26 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
                 {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="plan-workflow">工作流</Label>
+            <Select
+              value={values.tagWorkflowId ?? "none"}
+              onValueChange={(v) => set("tagWorkflowId", v === "none" ? null : v)}
+            >
+              <SelectTrigger id="plan-workflow" className="w-full" aria-label="工作流">
+                <SelectValue placeholder="选择工作流" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">无</SelectItem>
+                {tagWorkflows.map((wf) => (
+                  <SelectItem key={wf.id} value={wf.id}>
+                    {wf.name}
                   </SelectItem>
                 ))}
               </SelectContent>
