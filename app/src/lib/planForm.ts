@@ -1,6 +1,8 @@
 import type { Plan } from "@/types";
 import { formatDdl } from "@/lib/date";
 
+export type PeriodType = "daily" | "monthly" | "quarterly" | "yearly" | null;
+
 export interface PlanFormValues {
   title: string;
   description: string;
@@ -8,6 +10,8 @@ export interface PlanFormValues {
   importance: number;
   urgency: number;
   ddl: string | null;
+  periodType: PeriodType;
+  periodValue: string;
 }
 
 export function toPlanFormValues(plan: Plan): PlanFormValues {
@@ -18,6 +22,8 @@ export function toPlanFormValues(plan: Plan): PlanFormValues {
     importance: plan.importance,
     urgency: plan.urgency,
     ddl: formatDdl(plan.ddl) || null,
+    periodType: (plan.period_type as PeriodType) ?? null,
+    periodValue: plan.period_value ?? "",
   };
 }
 

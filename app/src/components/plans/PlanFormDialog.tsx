@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { CalendarIcon, X } from "lucide-react";
-import { toPlanFormValues, validatePlanForm, type PlanFormValues } from "@/lib/planForm";
+import { toPlanFormValues, validatePlanForm, type PlanFormValues, type PeriodType } from "@/lib/planForm";
 import { fromDateInputValue, toDateInputValue, formatDdl } from "@/lib/date";
 import { useAppStore } from "@/store/useAppStore";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ const DEFAULT_VALUES: PlanFormValues = {
   importance: 2,
   urgency: 2,
   ddl: null,
+  periodType: null,
+  periodValue: "",
 };
 
 export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
@@ -77,6 +79,8 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
         importance: values.importance,
         urgency: values.urgency,
         ddl: values.ddl,
+        period_type: values.periodType ?? null,
+        period_value: values.periodType ? values.periodValue || null : null,
       };
       if (isEdit && plan) {
         await editPlan({ id: plan.id, ...payload });
@@ -211,6 +215,39 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
               </PopoverContent>
             </Popover>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="plan-period-type">计划周期</Label>
+            <Select
+              value={values.periodType ?? "none"}
+              onValueChange={(v) =>
+                set("periodType", v === "none" ? null : (v as PeriodType))
+              }
+            >
+              <SelectTrigger id="plan-period-type" className="w-full" aria-label="计划周期">
+                <SelectValue placeholder="选择周期" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">无</SelectItem>
+                <SelectItem value="daily">日度</SelectItem>
+                <SelectItem value="monthly">月度</SelectItem>
+                <SelectItem value="quarterly">季度</SelectItem>
+                <SelectItem value="yearly">年度</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {values.periodType && (
+            <div className="space-y-2">
+              <Label htmlFor="plan-period-value">周期值</Label>
+              <Input
+                id="plan-period-value"
+                value={values.periodValue}
+                onChange={(e) => set("periodValue", e.target.value)}
+                placeholder="如 2026-08、2026-Q3、2026"
+              />
+            </div>
+          )}
 
           {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 

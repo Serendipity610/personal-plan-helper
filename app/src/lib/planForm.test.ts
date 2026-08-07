@@ -12,6 +12,8 @@ describe("validatePlanForm", () => {
         importance: 2,
         urgency: 2,
         ddl: null,
+        periodType: null,
+        periodValue: "",
       }),
     ).toEqual({ title: "标题不能为空" });
     expect(
@@ -22,6 +24,8 @@ describe("validatePlanForm", () => {
         importance: 2,
         urgency: 2,
         ddl: null,
+        periodType: null,
+        periodValue: "",
       }),
     ).toEqual({ title: "标题不能为空" });
   });
@@ -35,6 +39,8 @@ describe("validatePlanForm", () => {
         importance: 2,
         urgency: 2,
         ddl: null,
+        periodType: null,
+        periodValue: "",
       }),
     ).toEqual({});
   });
@@ -57,6 +63,8 @@ describe("toPlanFormValues", () => {
       importance: 3,
       urgency: 1,
       ddl: "2026-08-15",
+      periodType: null,
+      periodValue: "",
     });
   });
 });

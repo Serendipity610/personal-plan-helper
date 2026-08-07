@@ -2,6 +2,8 @@ import { useDraggable } from "@dnd-kit/core";
 import { CalendarDays, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDdl } from "@/lib/date";
+import { getDdlStatus } from "@/lib/ddl";
+import type { DdlStatus } from "@/lib/ddl";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +12,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+const DDL_BADGE_STYLES: Record<DdlStatus, string> = {
+  overdue: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  today: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  soon: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  normal: "",
+};
+
 import type { Category, Plan, PlanStatus } from "@/types";
 
 export interface PlanCardActions {
@@ -86,12 +95,25 @@ function PlanCardContent({ plan, category, actions }: PlanCardContentProps) {
             {category.name}
           </span>
         )}
-        {plan.ddl && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <CalendarDays className="h-3 w-3" />
-            {formatDdl(plan.ddl)}
-          </span>
-        )}
+        {plan.ddl && (() => {
+          const ddlInfo = getDdlStatus(plan.ddl);
+          return (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <CalendarDays className="h-3 w-3" />
+              {formatDdl(plan.ddl)}
+              {ddlInfo.status !== "normal" && (
+                <span
+                  className={cn(
+                    "ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
+                    DDL_BADGE_STYLES[ddlInfo.status],
+                  )}
+                >
+                  {ddlInfo.label}
+                </span>
+              )}
+            </span>
+          );
+        })()}
       </div>
     </>
   );
