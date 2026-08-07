@@ -120,10 +120,8 @@ export default function KanbanPage() {
       ),
     }));
 
-    // Add 未分类 column for plans not bound to this workflow
-    const unbound = activePlans.filter(
-      (p) => !p.tag_workflow_id || p.tag_workflow_id !== selectedWorkflow.id,
-    );
+    // Add 未分类 column for plans with no workflow binding
+    const unbound = activePlans.filter((p) => !p.tag_workflow_id);
     cols.push({ key: "unclassified", title: "未分类", plans: unbound });
 
     return cols;
@@ -186,18 +184,6 @@ export default function KanbanPage() {
 
   function handleStepChange(plan: Plan, newIndex: number) {
     editPlan({ id: plan.id, current_step_index: newIndex });
-  }
-
-  // Empty state
-  if (tagWorkflows.length === 0) {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold tracking-tight">看板视图</h2>
-        <p className="text-sm text-muted-foreground">
-          暂无工作流，请先在分类管理中创建工作流模板。
-        </p>
-      </div>
-    );
   }
 
   return (
