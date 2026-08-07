@@ -124,11 +124,3 @@ export interface UpdateTagWorkflowRequest {
 
 /** 艾森豪威尔矩阵象限 */
 export type Quadrant = "q1" | "q2" | "q3" | "q4";
-
-/** 根据 importance/urgency 计算所在象限 */
-export function getQuadrant(importance: number, urgency: number): Quadrant {
-  if (importance >= 2 && urgency >= 2) return "q1"; // 重要且紧急
-  if (importance >= 2 && urgency < 2) return "q2"; // 重要不紧急
-  if (importance < 2 && urgency >= 2) return "q3"; // 不重要紧急
-  return "q4"; // 不重要不紧急
-}

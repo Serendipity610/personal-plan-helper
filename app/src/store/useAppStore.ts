@@ -162,25 +162,3 @@ export function parseWorkflowSteps(workflow: TagWorkflow | null | undefined): st
     return [];
   }
 }
-
-/** Map importance + urgency (0-4 each) to an Eisenhower quadrant */
-export function getQuadrant(importance: number, urgency: number): 1 | 2 | 3 | 4 {
-  if (importance >= 2.5 && urgency >= 2.5) return 1; // 重要紧急
-  if (importance >= 2.5 && urgency < 2.5) return 2; // 重要不紧急
-  if (importance < 2.5 && urgency >= 2.5) return 3; // 不重要紧急
-  return 4; // 不重要不紧急
-}
-
-/** Get a human-readable label for a quadrant */
-export function getQuadrantLabel(q: 1 | 2 | 3 | 4): string {
-  switch (q) {
-    case 1:
-      return "重要紧急";
-    case 2:
-      return "重要不紧急";
-    case 3:
-      return "不重要紧急";
-    case 4:
-      return "不重要不紧急";
-  }
-}
