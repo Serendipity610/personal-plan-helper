@@ -4,12 +4,39 @@ import { makePlan } from "@/test/fixtures";
 
 describe("validatePlanForm", () => {
   it("requires a non-empty title", () => {
-    expect(validatePlanForm({ title: "", description: "", categoryId: null, importance: 2, urgency: 2, ddl: null })).toEqual({ title: "标题不能为空" });
-    expect(validatePlanForm({ title: "   ", description: "", categoryId: null, importance: 2, urgency: 2, ddl: null })).toEqual({ title: "标题不能为空" });
+    expect(
+      validatePlanForm({
+        title: "",
+        description: "",
+        categoryId: null,
+        importance: 2,
+        urgency: 2,
+        ddl: null,
+      }),
+    ).toEqual({ title: "标题不能为空" });
+    expect(
+      validatePlanForm({
+        title: "   ",
+        description: "",
+        categoryId: null,
+        importance: 2,
+        urgency: 2,
+        ddl: null,
+      }),
+    ).toEqual({ title: "标题不能为空" });
   });
 
   it("accepts a valid form", () => {
-    expect(validatePlanForm({ title: "写周报", description: "", categoryId: null, importance: 2, urgency: 2, ddl: null })).toEqual({});
+    expect(
+      validatePlanForm({
+        title: "写周报",
+        description: "",
+        categoryId: null,
+        importance: 2,
+        urgency: 2,
+        ddl: null,
+      }),
+    ).toEqual({});
   });
 });
 

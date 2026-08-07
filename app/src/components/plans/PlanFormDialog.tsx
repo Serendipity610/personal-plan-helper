@@ -180,7 +180,11 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
             <Label>DDL</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" type="button" className="w-full justify-start font-normal">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full justify-start font-normal"
+                >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {values.ddl ? formatDdl(values.ddl) : "选择日期"}
                 </Button>

@@ -64,7 +64,10 @@ function PlanCardContent({ plan, category, actions }: PlanCardContentProps) {
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onSelect={() => actions.onDelete(plan)}>
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={() => actions.onDelete(plan)}
+              >
                 删除
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -112,13 +115,23 @@ export function PlanCard({ plan, category, onEdit, onDelete, onToggleStatus }: P
         isDragging && "opacity-40",
       )}
     >
-      <PlanCardContent plan={plan} category={category} actions={{ onEdit, onDelete, onToggleStatus }} />
+      <PlanCardContent
+        plan={plan}
+        category={category}
+        actions={{ onEdit, onDelete, onToggleStatus }}
+      />
     </div>
   );
 }
 
 /** 拖拽过程中的跟随卡片（静态渲染，不注册拖拽源） */
-export function PlanCardOverlay({ plan, category }: { plan: Plan; category: Category | undefined }) {
+export function PlanCardOverlay({
+  plan,
+  category,
+}: {
+  plan: Plan;
+  category: Category | undefined;
+}) {
   return (
     <div className="w-64 rounded-lg border bg-card p-3 shadow-lg">
       <PlanCardContent plan={plan} category={category} />
