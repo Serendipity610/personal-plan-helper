@@ -83,6 +83,15 @@ describe("MatrixPage rendering", () => {
     expect(placeholders).toHaveLength(4);
   });
 
+  it("shows a loading state while plans are being fetched", async () => {
+    mockedApi.listPlans.mockReturnValue(new Promise(() => {})); // never resolves
+    useAppStore.setState({ loading: true });
+    renderPage();
+
+    expect(await screen.findByText("加载中...")).toBeInTheDocument();
+    expect(screen.queryByTestId("quadrant-q1")).not.toBeInTheDocument();
+  });
+
   it("distributes active plans by importance/urgency and hides terminal ones", async () => {
     renderPage();
     await screen.findByTestId("quadrant-q1");
