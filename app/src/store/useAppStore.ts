@@ -115,7 +115,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   removeCategory: async (id) => {
     await api.deleteCategory(id);
-    set({ categories: get().categories.filter((c) => c.id !== id) });
+    set({
+      categories: get().categories.filter((c) => c.id !== id),
+      // 后端删除时已将引用计划的 category_id 置空，本地同步避免残留失效引用
+      plans: get().plans.map((p) => (p.category_id === id ? { ...p, category_id: null } : p)),
+    });
   },
 
   // ── Tag workflows ────────────────────────────────────────
