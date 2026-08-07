@@ -3,6 +3,18 @@ import { useAppStore, selectFilteredPlans } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import { makePlan, makeCategory } from "@/test/fixtures";
 
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastInfo = vi.fn();
+
+vi.mock("@/lib/toast", () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    info: (...args: unknown[]) => mockToastInfo(...args),
+  },
+}));
+
 vi.mock("@/lib/api", () => ({
   createPlan: vi.fn(),
   updatePlan: vi.fn(),
@@ -50,6 +62,28 @@ describe("useAppStore plan actions", () => {
     await useAppStore.getState().editPlan({ id: "p1", title: "新标题" });
 
     expect(useAppStore.getState().plans).toEqual([updated]);
+  });
+
+  it("editPlan calls toast.success on successful update", async () => {
+    const existing = makePlan({ id: "p1", title: "旧标题" });
+    const updated = makePlan({ id: "p1", title: "新标题" });
+    useAppStore.setState({ plans: [existing] });
+    mockedApi.updatePlan.mockResolvedValue(updated);
+
+    await useAppStore.getState().editPlan({ id: "p1", title: "新标题" });
+
+    expect(mockToastSuccess).toHaveBeenCalledWith("计划更新成功");
+  });
+
+  it("editPlan calls toast.error on failed update", async () => {
+    const existing = makePlan({ id: "p1", title: "旧标题" });
+    useAppStore.setState({ plans: [existing] });
+    mockedApi.updatePlan.mockRejectedValue(new Error("网络错误"));
+
+    await expect(
+      useAppStore.getState().editPlan({ id: "p1", title: "新标题" }),
+    ).rejects.toThrow("网络错误");
+    expect(mockToastError).toHaveBeenCalledWith("更新计划失败: Error: 网络错误");
   });
 
   it("removePlan deletes the plan and drops it from state", async () => {

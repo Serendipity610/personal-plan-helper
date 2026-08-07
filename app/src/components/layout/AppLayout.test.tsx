@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import MatrixPage from "@/pages/MatrixPage";
+import DashboardPage from "@/pages/DashboardPage";
 import { useAppStore } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import { makePlan, makeCategory } from "@/test/fixtures";
@@ -260,5 +261,47 @@ describe("AppLayout category management dialog", () => {
     );
     const card = screen.getByTestId("plan-card-p3");
     expect(within(card).queryByText("旅行计划")).not.toBeInTheDocument();
+  });
+});
+
+describe("AppLayout keyboard shortcuts", () => {
+  it("Ctrl+K opens the command palette dialog", async () => {
+    renderLayout();
+    await screen.findByTestId("sidebar-category-all");
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    // CommandPalette has a search input
+    expect(screen.getByPlaceholderText("搜索页面或执行命令...")).toBeInTheDocument();
+  });
+
+  it("Ctrl+N opens the quick-create plan dialog on Matrix page", async () => {
+    renderLayout();
+    await screen.findByTestId("sidebar-category-all");
+
+    fireEvent.keyDown(window, { key: "n", ctrlKey: true });
+
+    // PlanFormDialog renders with "新建计划" as the DialogTitle
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("新建计划")).toBeInTheDocument();
+  });
+
+  it("Ctrl+N opens the quick-create plan dialog on Dashboard page", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="dashboard" element={<DashboardPage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByTestId("sidebar-category-all");
+
+    fireEvent.keyDown(window, { key: "n", ctrlKey: true });
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("新建计划")).toBeInTheDocument();
   });
 });
