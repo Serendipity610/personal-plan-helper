@@ -153,7 +153,7 @@ pub fn delete_category(db: State<'_, Database>, id: String) -> Result<bool, Stri
 
 /// Inner implementation for testability (commands take `State`, which tests cannot construct).
 pub(crate) fn delete_category_inner(db: &Database, id: String) -> Result<bool, String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
     let is_default: Option<bool> = conn
         .query_row(
             "SELECT is_default FROM categories WHERE id = ?1",
@@ -167,12 +167,21 @@ pub(crate) fn delete_category_inner(db: &Database, id: String) -> Result<bool, S
         return Err("默认分类不可删除".to_string());
     }
 
-    let affected = conn
+    // 事务内先置空引用计划的 category_id，再删除分类，
+    // 避免 foreign_keys=ON 时被引用分类的删除被外键约束阻断
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    tx.execute(
+        "UPDATE plans SET category_id = NULL WHERE category_id = ?1",
+        rusqlite::params![&id],
+    )
+    .map_err(|e| e.to_string())?;
+    let affected = tx
         .execute(
             "DELETE FROM categories WHERE id = ?1",
-            rusqlite::params![id],
+            rusqlite::params![&id],
         )
         .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(affected > 0)
 }
 
@@ -227,6 +236,46 @@ mod tests {
         let db = make_db();
         let created = create_category_inner(&db, create_request("可删除分类")).unwrap();
         assert!(delete_category_inner(&db, created.id).unwrap());
+    }
+
+    #[test]
+    fn test_delete_custom_category_detaches_referenced_plans() {
+        let db = make_db();
+        let cat_id = create_category_inner(&db, create_request("被引用分类")).unwrap().id;
+
+        // 真实数据场景：一条计划仍引用该分类
+        {
+            let conn = db.conn.lock().unwrap();
+            conn.execute(
+                "INSERT INTO plans (id, title, category_id, importance, urgency, created_at, updated_at)
+                 VALUES ('p-ref', '引用计划', ?1, 3, 3, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+                rusqlite::params![&cat_id],
+            )
+            .unwrap();
+        }
+
+        // 删除必须成功（外键约束不应阻断），且引用计划的 category_id 被置空
+        assert!(delete_category_inner(&db, cat_id.clone()).unwrap());
+
+        let conn = db.conn.lock().unwrap();
+        let remaining: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM categories WHERE id = ?1",
+                rusqlite::params![&cat_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(remaining, 0, "category must be deleted");
+
+        let detached: Option<String> = conn
+            .query_row("SELECT category_id FROM plans WHERE id = 'p-ref'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(
+            detached.is_none(),
+            "referencing plan must have category_id set to NULL"
+        );
     }
 
     #[test]

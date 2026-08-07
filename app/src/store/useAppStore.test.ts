@@ -138,6 +138,25 @@ describe("useAppStore category actions", () => {
     expect(mockedApi.deleteCategory).toHaveBeenCalledWith("cat-1");
     expect(useAppStore.getState().categories.map((c) => c.id)).toEqual(["cat-2"]);
   });
+
+  it("removeCategory clears category_id on referencing plans", async () => {
+    useAppStore.setState({
+      categories: [makeCategory({ id: "cat-1" })],
+      plans: [
+        makePlan({ id: "p1", category_id: "cat-1" }),
+        makePlan({ id: "p2", category_id: "cat-2" }),
+      ],
+    });
+    mockedApi.deleteCategory.mockResolvedValue(true);
+
+    await useAppStore.getState().removeCategory("cat-1");
+
+    expect(useAppStore.getState().categories).toEqual([]);
+    expect(useAppStore.getState().plans.map((p) => [p.id, p.category_id])).toEqual([
+      ["p1", null],
+      ["p2", "cat-2"],
+    ]);
+  });
 });
 
 describe("useAppStore global filters", () => {

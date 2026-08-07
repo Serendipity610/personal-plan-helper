@@ -3,6 +3,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
+import MatrixPage from "@/pages/MatrixPage";
 import { useAppStore } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import { makePlan, makeCategory } from "@/test/fixtures";
@@ -10,6 +11,9 @@ import { makePlan, makeCategory } from "@/test/fixtures";
 vi.mock("@/lib/api", () => ({
   listPlans: vi.fn(),
   listCategories: vi.fn(),
+  createPlan: vi.fn(),
+  updatePlan: vi.fn(),
+  deletePlan: vi.fn(),
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
@@ -35,7 +39,7 @@ function renderLayout() {
     <MemoryRouter initialEntries={["/matrix"]}>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route path="matrix" element={<div>矩阵页</div>} />
+          <Route path="matrix" element={<MatrixPage />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -222,5 +226,26 @@ describe("AppLayout category management dialog", () => {
     await waitFor(() =>
       expect(within(dialog).queryByTestId("category-row-cat-custom")).not.toBeInTheDocument(),
     );
+  });
+
+  it("deletes a referenced category and detaches its plans", async () => {
+    const user = userEvent.setup();
+    mockedApi.deleteCategory.mockResolvedValue(true);
+    renderLayout();
+    await screen.findByTestId("plan-card-p3");
+
+    const dialog = await openManageDialog(user);
+    await user.click(within(dialog).getByRole("button", { name: "删除分类 旅行计划" }));
+
+    await waitFor(() => expect(mockedApi.deleteCategory).toHaveBeenCalledWith("cat-custom"));
+    // 引用该分类的计划被置空，不再渲染分类徽标
+    await waitFor(() =>
+      expect(useAppStore.getState().plans.find((p) => p.id === "p3")?.category_id).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId("sidebar-category-cat-custom")).not.toBeInTheDocument(),
+    );
+    const card = screen.getByTestId("plan-card-p3");
+    expect(within(card).queryByText("旅行计划")).not.toBeInTheDocument();
   });
 });
