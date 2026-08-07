@@ -12,6 +12,7 @@ import {
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUADRANT_LABELS, getQuadrant, resolveQuadrantDrop } from "@/lib/quadrant";
+import { filterPlans } from "@/lib/filters";
 import { useAppStore } from "@/store/useAppStore";
 import { PlanCard, PlanCardOverlay } from "@/components/plans/PlanCard";
 import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
@@ -64,6 +65,9 @@ function EmptyQuadrant() {
 export default function MatrixPage() {
   const plans = useAppStore((s) => s.plans);
   const categories = useAppStore((s) => s.categories);
+  const selectedCategoryId = useAppStore((s) => s.selectedCategoryId);
+  const selectedStatus = useAppStore((s) => s.selectedStatus);
+  const selectedTimeRange = useAppStore((s) => s.selectedTimeRange);
   const loading = useAppStore((s) => s.loading);
   const fetchPlans = useAppStore((s) => s.fetchPlans);
   const fetchCategories = useAppStore((s) => s.fetchCategories);
@@ -80,7 +84,15 @@ export default function MatrixPage() {
     fetchCategories();
   }, [fetchPlans, fetchCategories]);
 
-  const activePlans = useMemo(() => plans.filter((p) => p.status === "active"), [plans]);
+  // 全局筛选：四象限本质是执行视图，状态为"全部"时仅展示活跃计划
+  const activePlans = useMemo(() => {
+    const effectiveStatus = selectedStatus === "all" ? "active" : selectedStatus;
+    return filterPlans(plans, {
+      categoryId: selectedCategoryId,
+      status: effectiveStatus,
+      timeRange: selectedTimeRange,
+    });
+  }, [plans, selectedCategoryId, selectedStatus, selectedTimeRange]);
 
   const plansByQuadrant = useMemo(() => {
     const buckets: Record<Quadrant, Plan[]> = { q1: [], q2: [], q3: [], q4: [] };
@@ -92,9 +104,7 @@ export default function MatrixPage() {
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   function openCreateDialog() {
     setEditingPlan(null);

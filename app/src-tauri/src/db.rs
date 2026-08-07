@@ -87,12 +87,52 @@ impl Database {
             conn.pragma_update(None, "user_version", 1)?;
         }
 
-        // Migration 1 → 2: future schema changes go here
-        // if current_version < 2 {
-        //     conn.execute_batch("ALTER TABLE ...")?;
-        //     conn.pragma_update(None, "user_version", 2)?;
-        // }
+        // Migration 1 → 2: categories get a default flag
+        // (预置分类不可删除但可编辑)
+        if current_version < 2 {
+            conn.execute_batch(
+                "ALTER TABLE categories ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0;",
+            )?;
+            conn.pragma_update(None, "user_version", 2)?;
+        }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn make_db() -> Database {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+
+        let db = Database {
+            conn: Mutex::new(conn),
+        };
+        db.run_migrations().unwrap();
+        db
+    }
+
+    #[test]
+    fn test_migration_v2_adds_is_default_column() {
+        let db = make_db();
+        let conn = db.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO categories (id, name, color, icon, sort_order, created_at)
+             VALUES ('c-test', '测试', '#000000', '', 0, '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+
+        let is_default: bool = conn
+            .query_row("SELECT is_default FROM categories WHERE id = 'c-test'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(!is_default, "rows created without the flag must default to non-default");
     }
 }

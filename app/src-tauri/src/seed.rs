@@ -23,19 +23,19 @@ pub fn run_seed(db: &Database) -> Result<(), String> {
     let result = (|| -> Result<(), rusqlite::Error> {
         // 4 default categories — INSERT OR IGNORE with stable IDs
         conn.execute(
-            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, is_default, created_at) VALUES (?1,?2,?3,?4,?5,1,?6)",
             rusqlite::params![CAT_WORK, "工作计划", "#3B82F6", "briefcase", 0, now],
         )?;
         conn.execute(
-            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, is_default, created_at) VALUES (?1,?2,?3,?4,?5,1,?6)",
             rusqlite::params![CAT_STUDY, "学习计划", "#10B981", "book-open", 1, now],
         )?;
         conn.execute(
-            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, is_default, created_at) VALUES (?1,?2,?3,?4,?5,1,?6)",
             rusqlite::params![CAT_DAILY, "日常计划", "#F59E0B", "calendar", 2, now],
         )?;
         conn.execute(
-            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+            "INSERT OR IGNORE INTO categories (id, name, color, icon, sort_order, is_default, created_at) VALUES (?1,?2,?3,?4,?5,1,?6)",
             rusqlite::params![CAT_PERSONAL, "个人任务", "#8B5CF6", "user", 3, now],
         )?;
 
@@ -129,6 +129,27 @@ mod tests {
         assert_eq!(count_table(&db, "categories"), 4);
         assert_eq!(count_table(&db, "tag_workflows"), 1);
         assert_eq!(count_table(&db, "plans"), 3);
+    }
+
+    #[test]
+    fn test_seed_marks_default_categories() {
+        let db = make_db();
+        run_seed(&db).unwrap();
+
+        let conn = db.conn.lock().unwrap();
+        let rows: Vec<(String, bool)> = conn
+            .prepare("SELECT name, is_default FROM categories ORDER BY sort_order")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+
+        assert_eq!(rows.len(), 4, "seed must insert exactly 4 categories");
+        assert!(
+            rows.iter().all(|(_, is_default)| *is_default),
+            "all seeded categories must be default (non-deletable)"
+        );
     }
 
     #[test]

@@ -9,6 +9,8 @@ pub struct Category {
     pub color: String,
     pub icon: String,
     pub sort_order: i32,
+    /// 预置分类（工作计划等）：不可删除但可编辑
+    pub is_default: bool,
     pub created_at: String,
 }
 
