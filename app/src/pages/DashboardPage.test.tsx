@@ -7,6 +7,17 @@ import { useAppStore } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import type { DashboardStats, CompletionTrendPoint, DistributionItem } from "@/types";
 
+const mockToastApiError = vi.fn();
+
+vi.mock("@/lib/toast", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+  toastApiError: (...args: unknown[]) => mockToastApiError(...args),
+}));
+
 vi.mock("@/lib/api", () => ({
   createPlan: vi.fn(),
   updatePlan: vi.fn(),
@@ -198,11 +209,20 @@ describe("DashboardPage period switching", () => {
 });
 
 describe("DashboardPage error handling", () => {
-  it("shows error state when API fails", async () => {
+  it("shows error state and single toast when API fails", async () => {
     mockedApi.getDashboardStats.mockRejectedValue(new Error("数据库错误"));
 
     renderPage();
 
     expect(await screen.findByText(/加载失败/)).toBeInTheDocument();
+    expect(mockToastApiError).toHaveBeenCalledTimes(1);
+    expect(mockToastApiError).toHaveBeenCalledWith("加载总览", expect.any(Error));
+  });
+
+  it("does not show error toast on successful load", async () => {
+    renderPage();
+
+    await screen.findByText("总计划数");
+    expect(mockToastApiError).not.toHaveBeenCalled();
   });
 });

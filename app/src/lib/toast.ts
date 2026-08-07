@@ -14,3 +14,12 @@ export const toast = {
     sonnerToast(message);
   },
 };
+
+/**
+ * Unified error-toast helper for background data-load failures.
+ * Produces a single, consistently-formatted error toast from any catch block.
+ * Use from store fetch methods and page-level data loaders.
+ */
+export function toastApiError(action: string, error: unknown): void {
+  toast.error(`${action}失败: ${String(error)}`);
+}

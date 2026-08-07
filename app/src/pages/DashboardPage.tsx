@@ -22,6 +22,7 @@ import {
   Legend,
 } from "recharts";
 import * as api from "@/lib/api";
+import { toastApiError } from "@/lib/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   DashboardStats,
@@ -204,7 +205,10 @@ export default function DashboardPage() {
           setCategoryDist(c);
         }
       } catch (e) {
-        if (!cancelled) setError(`加载失败: ${String(e)}`);
+        if (!cancelled) {
+          setError(`加载失败: ${String(e)}`);
+          toastApiError("加载总览", e);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

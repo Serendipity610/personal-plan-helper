@@ -6,6 +6,7 @@ import { makePlan, makeCategory } from "@/test/fixtures";
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
 const mockToastInfo = vi.fn();
+const mockToastApiError = vi.fn();
 
 vi.mock("@/lib/toast", () => ({
   toast: {
@@ -13,6 +14,7 @@ vi.mock("@/lib/toast", () => ({
     error: (...args: unknown[]) => mockToastError(...args),
     info: (...args: unknown[]) => mockToastInfo(...args),
   },
+  toastApiError: (...args: unknown[]) => mockToastApiError(...args),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -24,6 +26,10 @@ vi.mock("@/lib/api", () => ({
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
+  listTagWorkflows: vi.fn(),
+  createTagWorkflow: vi.fn(),
+  updateTagWorkflow: vi.fn(),
+  deleteTagWorkflow: vi.fn(),
 }));
 
 const mockedApi = vi.mocked(api);
@@ -106,13 +112,23 @@ describe("useAppStore plan actions", () => {
     expect(useAppStore.getState().loading).toBe(false);
   });
 
-  it("fetchPlans records an error when the api fails", async () => {
+  it("fetchPlans records an error and shows toast when the api fails", async () => {
     mockedApi.listPlans.mockRejectedValue(new Error("db down"));
 
     await useAppStore.getState().fetchPlans();
 
     expect(useAppStore.getState().error).toContain("db down");
     expect(useAppStore.getState().plans).toEqual([]);
+    expect(mockToastApiError).toHaveBeenCalledWith("加载计划", expect.any(Error));
+  });
+
+  it("fetchPlans does not show toast on success", async () => {
+    const plans = [makePlan({ id: "p1" })];
+    mockedApi.listPlans.mockResolvedValue(plans);
+
+    await useAppStore.getState().fetchPlans();
+
+    expect(mockToastApiError).not.toHaveBeenCalled();
   });
 
   it("fetchCategories loads categories into state", async () => {
@@ -122,6 +138,15 @@ describe("useAppStore plan actions", () => {
     await useAppStore.getState().fetchCategories();
 
     expect(useAppStore.getState().categories).toEqual(categories);
+  });
+
+  it("fetchCategories records an error and shows toast when the api fails", async () => {
+    mockedApi.listCategories.mockRejectedValue(new Error("db down"));
+
+    await useAppStore.getState().fetchCategories();
+
+    expect(useAppStore.getState().error).toContain("db down");
+    expect(mockToastApiError).toHaveBeenCalledWith("加载分类", expect.any(Error));
   });
 });
 
@@ -190,6 +215,31 @@ describe("useAppStore category actions", () => {
       ["p1", null],
       ["p2", "cat-2"],
     ]);
+  });
+});
+
+describe("useAppStore tag workflow actions", () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      plans: [],
+      categories: [],
+      tagWorkflows: [],
+      selectedCategoryId: null,
+      selectedStatus: "all",
+      selectedTimeRange: "all",
+      loading: false,
+      error: null,
+    });
+    vi.clearAllMocks();
+  });
+
+  it("fetchTagWorkflows records an error and shows toast when the api fails", async () => {
+    mockedApi.listTagWorkflows.mockRejectedValue(new Error("db down"));
+
+    await useAppStore.getState().fetchTagWorkflows();
+
+    expect(useAppStore.getState().error).toContain("db down");
+    expect(mockToastApiError).toHaveBeenCalledWith("加载工作流", expect.any(Error));
   });
 });
 

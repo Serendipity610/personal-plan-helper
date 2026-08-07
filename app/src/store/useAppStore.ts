@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { Plan, Category, TagWorkflow, PlanStatus, TimeRange } from "@/types";
 import { filterPlans } from "@/lib/filters";
 import * as api from "@/lib/api";
-import { toast } from "@/lib/toast";
+import { toast, toastApiError } from "@/lib/toast";
 
 // ── State shape ──────────────────────────────────────────────
 
@@ -65,6 +65,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ plans });
     } catch (e) {
       set({ error: `加载计划失败: ${String(e)}` });
+      toastApiError("加载计划", e);
     } finally {
       set({ loading: false });
     }
@@ -115,6 +116,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ categories });
     } catch (e) {
       set({ error: `加载分类失败: ${String(e)}` });
+      toastApiError("加载分类", e);
     }
   },
 
@@ -167,6 +169,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ tagWorkflows: workflows });
     } catch (e) {
       set({ error: `加载工作流失败: ${String(e)}` });
+      toastApiError("加载工作流", e);
     }
   },
 
