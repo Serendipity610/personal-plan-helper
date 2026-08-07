@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, selectFilteredPlans } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import { makePlan, makeCategory } from "@/test/fixtures";
 
@@ -9,6 +9,9 @@ vi.mock("@/lib/api", () => ({
   deletePlan: vi.fn(),
   listPlans: vi.fn(),
   listCategories: vi.fn(),
+  createCategory: vi.fn(),
+  updateCategory: vi.fn(),
+  deleteCategory: vi.fn(),
 }));
 
 const mockedApi = vi.mocked(api);
@@ -21,6 +24,7 @@ describe("useAppStore plan actions", () => {
       tagWorkflows: [],
       selectedCategoryId: null,
       selectedStatus: "all",
+      selectedTimeRange: "all",
       loading: false,
       error: null,
     });
@@ -84,5 +88,103 @@ describe("useAppStore plan actions", () => {
     await useAppStore.getState().fetchCategories();
 
     expect(useAppStore.getState().categories).toEqual(categories);
+  });
+});
+
+describe("useAppStore category actions", () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      plans: [],
+      categories: [],
+      tagWorkflows: [],
+      selectedCategoryId: null,
+      selectedStatus: "all",
+      selectedTimeRange: "all",
+      loading: false,
+      error: null,
+    });
+    vi.clearAllMocks();
+  });
+
+  it("addCategory appends the created category", async () => {
+    const created = makeCategory({ id: "new-cat", name: "旅行计划" });
+    mockedApi.createCategory.mockResolvedValue(created);
+
+    const result = await useAppStore.getState().addCategory({ name: "旅行计划", color: "#10B981" });
+
+    expect(result).toEqual(created);
+    expect(useAppStore.getState().categories).toEqual([created]);
+  });
+
+  it("editCategory replaces the matching category in place", async () => {
+    const existing = makeCategory({ id: "cat-1", name: "旧分类" });
+    const updated = makeCategory({ id: "cat-1", name: "新分类" });
+    useAppStore.setState({ categories: [existing] });
+    mockedApi.updateCategory.mockResolvedValue(updated);
+
+    await useAppStore.getState().editCategory({ id: "cat-1", name: "新分类" });
+
+    expect(useAppStore.getState().categories).toEqual([updated]);
+  });
+
+  it("removeCategory deletes the category and drops it from state", async () => {
+    useAppStore.setState({
+      categories: [makeCategory({ id: "cat-1" }), makeCategory({ id: "cat-2" })],
+    });
+    mockedApi.deleteCategory.mockResolvedValue(true);
+
+    await useAppStore.getState().removeCategory("cat-1");
+
+    expect(mockedApi.deleteCategory).toHaveBeenCalledWith("cat-1");
+    expect(useAppStore.getState().categories.map((c) => c.id)).toEqual(["cat-2"]);
+  });
+});
+
+describe("useAppStore global filters", () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      plans: [
+        makePlan({ id: "a", category_id: "c1", status: "active", ddl: "2026-08-07" }),
+        makePlan({ id: "b", category_id: "c2", status: "completed", ddl: "2026-08-07" }),
+        makePlan({ id: "c", category_id: "c1", status: "active", ddl: null }),
+      ],
+      categories: [],
+      tagWorkflows: [],
+      selectedCategoryId: null,
+      selectedStatus: "all",
+      selectedTimeRange: "all",
+      loading: false,
+      error: null,
+    });
+    vi.clearAllMocks();
+  });
+
+  it("setSelectedTimeRange updates the time range", () => {
+    useAppStore.getState().setSelectedTimeRange("week");
+    expect(useAppStore.getState().selectedTimeRange).toBe("week");
+  });
+
+  it("selectFilteredPlans applies the category filter", () => {
+    useAppStore.setState({ selectedCategoryId: "c1" });
+    expect(selectFilteredPlans(useAppStore.getState()).map((p) => p.id)).toEqual(["a", "c"]);
+  });
+
+  it("selectFilteredPlans applies the status filter", () => {
+    useAppStore.setState({ selectedStatus: "completed" });
+    expect(selectFilteredPlans(useAppStore.getState()).map((p) => p.id)).toEqual(["b"]);
+  });
+
+  it("selectFilteredPlans applies the time range filter", () => {
+    useAppStore.setState({ selectedTimeRange: "today" });
+    expect(selectFilteredPlans(useAppStore.getState()).map((p) => p.id)).toEqual(["a", "b"]);
+  });
+
+  it("selectFilteredPlans combines all filters", () => {
+    useAppStore.setState({
+      selectedCategoryId: "c1",
+      selectedStatus: "active",
+      selectedTimeRange: "today",
+    });
+    expect(selectFilteredPlans(useAppStore.getState()).map((p) => p.id)).toEqual(["a"]);
   });
 });

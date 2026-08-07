@@ -9,6 +9,8 @@ export interface Category {
   color: string;
   icon: string;
   sort_order: number;
+  /** 预置分类（工作计划等）：不可删除但可编辑 */
+  is_default: boolean;
   created_at: string;
 }
 
@@ -124,3 +126,12 @@ export interface UpdateTagWorkflowRequest {
 
 /** 艾森豪威尔矩阵象限 */
 export type Quadrant = "q1" | "q2" | "q3" | "q4";
+
+/** 全局筛选的时间段 */
+export type TimeRange = "all" | "today" | "week" | "month" | "quarter" | "year";
+
+/** 列表视图的可排序列 */
+export type PlanSortKey = "importance" | "urgency" | "ddl" | "created_at";
+
+/** 排序方向 */
+export type SortDirection = "asc" | "desc";

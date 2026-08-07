@@ -1,18 +1,20 @@
 import { create } from "zustand";
-import type { Plan, Category, TagWorkflow, PlanStatus } from "@/types";
+import type { Plan, Category, TagWorkflow, PlanStatus, TimeRange } from "@/types";
+import { filterPlans } from "@/lib/filters";
 import * as api from "@/lib/api";
 
 // ── State shape ──────────────────────────────────────────────
 
-interface AppState {
+export interface AppState {
   // Data
   plans: Plan[];
   categories: Category[];
   tagWorkflows: TagWorkflow[];
 
-  // UI state
+  // UI state — 全局筛选条件
   selectedCategoryId: string | null;
   selectedStatus: PlanStatus | "all";
+  selectedTimeRange: TimeRange;
   loading: boolean;
   error: string | null;
 
@@ -37,6 +39,7 @@ interface AppState {
   // ── UI actions ──
   setSelectedCategoryId: (id: string | null) => void;
   setSelectedStatus: (status: PlanStatus | "all") => void;
+  setSelectedTimeRange: (range: TimeRange) => void;
   clearError: () => void;
 }
 
@@ -48,6 +51,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   tagWorkflows: [],
   selectedCategoryId: null,
   selectedStatus: "all",
+  selectedTimeRange: "all",
   loading: false,
   error: null,
 
@@ -148,6 +152,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSelectedCategoryId: (id) => set({ selectedCategoryId: id }),
   setSelectedStatus: (status) => set({ selectedStatus: status }),
+  setSelectedTimeRange: (range) => set({ selectedTimeRange: range }),
   clearError: () => set({ error: null }),
 }));
 
@@ -161,4 +166,15 @@ export function parseWorkflowSteps(workflow: TagWorkflow | null | undefined): st
   } catch {
     return [];
   }
+}
+
+/** 按全局筛选条件（分类/状态/时间段）过滤计划 */
+export function selectFilteredPlans(
+  state: Pick<AppState, "plans" | "selectedCategoryId" | "selectedStatus" | "selectedTimeRange">,
+): Plan[] {
+  return filterPlans(state.plans, {
+    categoryId: state.selectedCategoryId,
+    status: state.selectedStatus,
+    timeRange: state.selectedTimeRange,
+  });
 }

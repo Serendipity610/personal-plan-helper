@@ -28,6 +28,7 @@ export function makeCategory(overrides: Partial<Category> = {}): Category {
     color: "#ef4444",
     icon: "briefcase",
     sort_order: 1,
+    is_default: false,
     created_at: "2026-08-01T00:00:00Z",
     ...overrides,
   };

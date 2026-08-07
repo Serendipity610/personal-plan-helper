@@ -6,6 +6,7 @@ import MatrixPage from "@/pages/MatrixPage";
 import { useAppStore } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import { makePlan, makeCategory } from "@/test/fixtures";
+import { toDateInputValue } from "@/lib/date";
 
 vi.mock("@/lib/api", () => ({
   createPlan: vi.fn(),
@@ -20,7 +21,14 @@ const mockedApi = vi.mocked(api);
 const categories = [makeCategory()];
 
 const seedPlans = [
-  makePlan({ id: "p-q1", title: "紧急重要任务", importance: 3, urgency: 3, category_id: "cat-1", ddl: "2026-08-15" }),
+  makePlan({
+    id: "p-q1",
+    title: "紧急重要任务",
+    importance: 3,
+    urgency: 3,
+    category_id: "cat-1",
+    ddl: "2026-08-15",
+  }),
   makePlan({ id: "p-q2", title: "重要不紧急任务", importance: 3, urgency: 1 }),
   makePlan({ id: "p-q3", title: "不重要紧急任务", importance: 1, urgency: 3 }),
   makePlan({ id: "p-q4", title: "不重要不紧急任务", importance: 1, urgency: 1 }),
@@ -46,6 +54,7 @@ beforeEach(() => {
     tagWorkflows: [],
     selectedCategoryId: null,
     selectedStatus: "all",
+    selectedTimeRange: "all",
     loading: false,
     error: null,
   });
@@ -145,7 +154,9 @@ describe("MatrixPage create flow", () => {
 
   it("selects a category and a DDL date in the form", async () => {
     const user = userEvent.setup();
-    mockedApi.createPlan.mockResolvedValue(makePlan({ id: "new-2", title: "带分类计划", category_id: "cat-1", ddl: "2026-08-15" }));
+    mockedApi.createPlan.mockResolvedValue(
+      makePlan({ id: "new-2", title: "带分类计划", category_id: "cat-1", ddl: "2026-08-15" }),
+    );
     renderPage();
     await screen.findByTestId("quadrant-q1");
 
@@ -232,11 +243,53 @@ describe("MatrixPage delete flow", () => {
   });
 });
 
+describe("MatrixPage global filters", () => {
+  it("shows only plans of the selected category", async () => {
+    useAppStore.setState({ selectedCategoryId: "cat-1" });
+    renderPage();
+    await screen.findByTestId("quadrant-q1");
+
+    expect(screen.getByTestId("plan-card-p-q1")).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-card-p-q2")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("plan-card-p-q3")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("plan-card-p-q4")).not.toBeInTheDocument();
+  });
+
+  it("shows completed plans when the status filter is set", async () => {
+    useAppStore.setState({ selectedStatus: "completed" });
+    renderPage();
+    await screen.findByTestId("quadrant-q1");
+
+    expect(screen.getByTestId("plan-card-p-done")).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-card-p-q1")).not.toBeInTheDocument();
+  });
+
+  it("shows only plans due within the selected time range", async () => {
+    const today = toDateInputValue(new Date());
+    mockedApi.listPlans.mockResolvedValue([
+      makePlan({ id: "p-today", title: "今日到期", importance: 3, urgency: 3, ddl: today }),
+      makePlan({ id: "p-old", title: "旧任务", importance: 3, urgency: 3, ddl: "2020-01-01" }),
+    ]);
+    useAppStore.setState({ selectedTimeRange: "today" });
+    renderPage();
+    await screen.findByTestId("plan-card-p-today");
+
+    expect(screen.getByTestId("plan-card-p-today")).toBeInTheDocument();
+    expect(screen.queryByTestId("plan-card-p-old")).not.toBeInTheDocument();
+  });
+});
+
 describe("MatrixPage status toggle", () => {
   it("marks a plan as completed from the card menu", async () => {
     const user = userEvent.setup();
     mockedApi.updatePlan.mockResolvedValue(
-      makePlan({ id: "p-q1", title: "紧急重要任务", importance: 3, urgency: 3, status: "completed" }),
+      makePlan({
+        id: "p-q1",
+        title: "紧急重要任务",
+        importance: 3,
+        urgency: 3,
+        status: "completed",
+      }),
     );
     renderPage();
     await screen.findByTestId("plan-card-p-q1");
