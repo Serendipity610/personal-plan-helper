@@ -96,6 +96,40 @@ impl Database {
             conn.pragma_update(None, "user_version", 2)?;
         }
 
+        // Migration 2 → 3: importance/urgency 支持半格小数（0-4 步进 0.5）
+        // SQLite 无法 ALTER COLUMN TYPE，重建 plans 表：
+        // 关外键 → 事务内建新表/拷数据/替换 → 恢复外键。
+        // plan_logs 的 FK 以字符串引用 "plans"，DROP 旧表后 RENAME 使引用指向新表。
+        if current_version < 3 {
+            conn.execute_batch(
+                "PRAGMA foreign_keys=OFF;
+                BEGIN;
+                CREATE TABLE plans_new (
+                    id                  TEXT PRIMARY KEY,
+                    title               TEXT NOT NULL,
+                    description         TEXT DEFAULT '',
+                    category_id         TEXT REFERENCES categories(id),
+                    parent_id           TEXT REFERENCES plans(id),
+                    importance          REAL NOT NULL DEFAULT 0 CHECK(importance BETWEEN 0 AND 4),
+                    urgency             REAL NOT NULL DEFAULT 0 CHECK(urgency BETWEEN 0 AND 4),
+                    ddl                 TEXT,
+                    tag_workflow_id     TEXT REFERENCES tag_workflows(id),
+                    current_step_index  INTEGER DEFAULT 0,
+                    period_type         TEXT CHECK(period_type IN ('daily','monthly','quarterly','yearly')),
+                    period_value        TEXT,
+                    status              TEXT DEFAULT 'active' CHECK(status IN ('active','completed','cancelled')),
+                    created_at          TEXT NOT NULL,
+                    updated_at          TEXT NOT NULL
+                );
+                INSERT INTO plans_new SELECT id, title, description, category_id, parent_id, importance, urgency, ddl, tag_workflow_id, current_step_index, period_type, period_value, status, created_at, updated_at FROM plans;
+                DROP TABLE plans;
+                ALTER TABLE plans_new RENAME TO plans;
+                COMMIT;
+                PRAGMA foreign_keys=ON;",
+            )?;
+            conn.pragma_update(None, "user_version", 3)?;
+        }
+
         Ok(())
     }
 }

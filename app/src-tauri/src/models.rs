@@ -31,8 +31,8 @@ pub struct Plan {
     pub description: String,
     pub category_id: Option<String>,
     pub parent_id: Option<String>,
-    pub importance: i32,
-    pub urgency: i32,
+    pub importance: f64,
+    pub urgency: f64,
     pub ddl: Option<String>,
     pub tag_workflow_id: Option<String>,
     pub current_step_index: i32,
@@ -64,9 +64,9 @@ pub struct CreatePlanRequest {
     pub category_id: Option<String>,
     pub parent_id: Option<String>,
     #[serde(default)]
-    pub importance: i32,
+    pub importance: f64,
     #[serde(default)]
-    pub urgency: i32,
+    pub urgency: f64,
     pub ddl: Option<String>,
     pub tag_workflow_id: Option<String>,
     #[serde(default)]
@@ -93,8 +93,8 @@ pub struct UpdatePlanRequest {
     pub description: Option<String>,
     pub category_id: Option<Option<String>>,
     pub parent_id: Option<Option<String>>,
-    pub importance: Option<i32>,
-    pub urgency: Option<i32>,
+    pub importance: Option<f64>,
+    pub urgency: Option<f64>,
     pub ddl: Option<Option<String>>,
     pub tag_workflow_id: Option<Option<String>>,
     pub current_step_index: Option<i32>,

@@ -6,6 +6,9 @@ use tauri::State;
 /// Create a new plan
 #[tauri::command]
 pub fn create_plan(db: State<'_, Database>, request: CreatePlanRequest) -> Result<Plan, String> {
+    validate_score(request.importance, "importance")?;
+    validate_score(request.urgency, "urgency")?;
+
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
@@ -65,10 +68,12 @@ pub fn update_plan(db: State<'_, Database>, request: UpdatePlanRequest) -> Resul
         params.push(Box::new(v));
     }
     if let Some(v) = request.importance {
+        validate_score(v, "importance")?;
         sets.push(format!("importance = ?{}", sets.len() + 1));
         params.push(Box::new(v));
     }
     if let Some(v) = request.urgency {
+        validate_score(v, "urgency")?;
         sets.push(format!("urgency = ?{}", sets.len() + 1));
         params.push(Box::new(v));
     }
@@ -173,6 +178,15 @@ pub fn list_plans(
 }
 
 // --- Internal helpers ---
+
+/// 重要度/紧急度取值范围 0-4（支持半格小数）
+fn validate_score(score: f64, field: &str) -> Result<(), String> {
+    if (0.0..=4.0).contains(&score) {
+        Ok(())
+    } else {
+        Err(format!("{field} 必须在 0-4 之间，收到 {score}"))
+    }
+}
 
 /// Apply a tri-state nullable field to the UPDATE clause.
 fn apply_nullable(
