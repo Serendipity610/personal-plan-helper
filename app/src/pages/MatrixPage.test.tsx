@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent, { PointerEventsCheckLevel } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -7,6 +7,13 @@ import { useAppStore } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import { makePlan, makeCategory } from "@/test/fixtures";
 import { toDateInputValue } from "@/lib/date";
+import {
+  dragPointer,
+  installRectMock,
+  restoreRectMock,
+  setOverlayRect,
+  setTestRect,
+} from "@/test/dnd";
 
 vi.mock("@/lib/api", () => ({
   createPlan: vi.fn(),
@@ -78,18 +85,22 @@ describe("MatrixPage rendering", () => {
     mockedApi.listPlans.mockResolvedValue([]);
     renderPage();
 
-    await screen.findByTestId("quadrant-q4");
-    const placeholders = await screen.findAllByText("暂无计划");
-    expect(placeholders).toHaveLength(4);
+    // Now shows full-page empty state with icon and CTA button
+    await screen.findByText("暂无计划");
+    expect(screen.getByText("创建第一个计划，它将根据重要度与紧急度出现在对应象限")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建计划" })).toBeInTheDocument();
   });
 
-  it("shows a loading state while plans are being fetched", async () => {
+  it("shows a loading skeleton while plans are being fetched", async () => {
     mockedApi.listPlans.mockReturnValue(new Promise(() => {})); // never resolves
     useAppStore.setState({ loading: true });
     renderPage();
 
-    expect(await screen.findByText("加载中...")).toBeInTheDocument();
-    expect(screen.queryByTestId("quadrant-q1")).not.toBeInTheDocument();
+    // Skeleton is rendered — verify by checking for the skeleton wrapper
+    await screen.findByText("艾森豪威尔四象限");
+    // The skeleton renders 4 min-h-40 sections with animate-pulse, check they exist
+    const skeletonCards = document.querySelectorAll(".animate-pulse");
+    expect(skeletonCards.length).toBeGreaterThan(0);
   });
 
   it("distributes active plans by importance/urgency and hides terminal ones", async () => {
@@ -313,6 +324,60 @@ describe("MatrixPage global filters", () => {
 
     expect(screen.getByTestId("plan-card-p-today")).toBeInTheDocument();
     expect(screen.queryByTestId("plan-card-p-old")).not.toBeInTheDocument();
+  });
+});
+
+describe("MatrixPage drag to adjust priority", () => {
+  afterEach(restoreRectMock);
+
+  it("drags a plan card from one quadrant to another and updates importance/urgency", async () => {
+    mockedApi.updatePlan.mockResolvedValue(
+      makePlan({ id: "p-q1", title: "紧急重要任务", importance: 3, urgency: 1 }),
+    );
+    installRectMock();
+    // 2x2 quadrant layout; the card lives in q1, q2 is directly to the right.
+    setTestRect("quadrant-q1", { x: 0, y: 0, width: 200, height: 200 });
+    setTestRect("quadrant-q2", { x: 200, y: 0, width: 200, height: 200 });
+    setTestRect("quadrant-q3", { x: 0, y: 200, width: 200, height: 200 });
+    setTestRect("quadrant-q4", { x: 200, y: 200, width: 200, height: 200 });
+    setTestRect("plan-card-p-q1", { x: 10, y: 10, width: 180, height: 80 });
+    setOverlayRect({ x: 10, y: 10, width: 180, height: 80 });
+
+    renderPage();
+    await screen.findByTestId("plan-card-p-q1");
+
+    const card = screen.getByTestId("plan-card-p-q1");
+    await dragPointer(card, { x: 50, y: 50 }, { x: 250, y: 50 });
+
+    await waitFor(() =>
+      expect(mockedApi.updatePlan).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "p-q1", importance: 3, urgency: 1 }),
+      ),
+    );
+  });
+
+  it("keeps priority unchanged when the card is dropped outside any quadrant", async () => {
+    mockedApi.updatePlan.mockResolvedValue(
+      makePlan({ id: "p-q1", title: "紧急重要任务", importance: 3, urgency: 3 }),
+    );
+    installRectMock();
+    setTestRect("quadrant-q1", { x: 0, y: 0, width: 200, height: 200 });
+    setTestRect("quadrant-q2", { x: 200, y: 0, width: 200, height: 200 });
+    setTestRect("quadrant-q3", { x: 0, y: 200, width: 200, height: 200 });
+    setTestRect("quadrant-q4", { x: 200, y: 200, width: 200, height: 200 });
+    setTestRect("plan-card-p-q1", { x: 10, y: 10, width: 180, height: 80 });
+    setOverlayRect({ x: 10, y: 10, width: 180, height: 80 });
+
+    renderPage();
+    await screen.findByTestId("plan-card-p-q1");
+
+    const card = screen.getByTestId("plan-card-p-q1");
+    // Drop far outside the 2x2 grid: no droppable intersects, so over is null
+    // and the drag resolves to a no-op.
+    await dragPointer(card, { x: 50, y: 50 }, { x: 500, y: 500 });
+
+    await new Promise((r) => setTimeout(r, 100));
+    expect(mockedApi.updatePlan).not.toHaveBeenCalled();
   });
 });
 

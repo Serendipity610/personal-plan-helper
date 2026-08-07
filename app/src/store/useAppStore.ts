@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Plan, Category, TagWorkflow, PlanStatus, TimeRange } from "@/types";
 import { filterPlans } from "@/lib/filters";
 import * as api from "@/lib/api";
+import { toast } from "@/lib/toast";
 
 // ── State shape ──────────────────────────────────────────────
 
@@ -70,22 +71,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addPlan: async (input) => {
-    const plan = await api.createPlan(input);
-    set({ plans: [plan, ...get().plans] });
-    return plan;
+    try {
+      const plan = await api.createPlan(input);
+      set({ plans: [plan, ...get().plans] });
+      toast.success("计划创建成功");
+      return plan;
+    } catch (e) {
+      toast.error(`创建计划失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   editPlan: async (input) => {
-    const plan = await api.updatePlan(input);
-    set({
-      plans: get().plans.map((p) => (p.id === plan.id ? plan : p)),
-    });
-    return plan;
+    try {
+      const plan = await api.updatePlan(input);
+      set({
+        plans: get().plans.map((p) => (p.id === plan.id ? plan : p)),
+      });
+      toast.success("计划更新成功");
+      return plan;
+    } catch (e) {
+      toast.error(`更新计划失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   removePlan: async (id) => {
-    await api.deletePlan(id);
-    set({ plans: get().plans.filter((p) => p.id !== id) });
+    try {
+      await api.deletePlan(id);
+      set({ plans: get().plans.filter((p) => p.id !== id) });
+      toast.success("计划已删除");
+    } catch (e) {
+      toast.error(`删除计划失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   // ── Categories ───────────────────────────────────────────
@@ -100,26 +119,44 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addCategory: async (input) => {
-    const category = await api.createCategory(input);
-    set({ categories: [...get().categories, category] });
-    return category;
+    try {
+      const category = await api.createCategory(input);
+      set({ categories: [...get().categories, category] });
+      toast.success("分类创建成功");
+      return category;
+    } catch (e) {
+      toast.error(`创建分类失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   editCategory: async (input) => {
-    const category = await api.updateCategory(input);
-    set({
-      categories: get().categories.map((c) => (c.id === category.id ? category : c)),
-    });
-    return category;
+    try {
+      const category = await api.updateCategory(input);
+      set({
+        categories: get().categories.map((c) => (c.id === category.id ? category : c)),
+      });
+      toast.success("分类更新成功");
+      return category;
+    } catch (e) {
+      toast.error(`更新分类失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   removeCategory: async (id) => {
-    await api.deleteCategory(id);
-    set({
-      categories: get().categories.filter((c) => c.id !== id),
-      // 后端删除时已将引用计划的 category_id 置空，本地同步避免残留失效引用
-      plans: get().plans.map((p) => (p.category_id === id ? { ...p, category_id: null } : p)),
-    });
+    try {
+      await api.deleteCategory(id);
+      set({
+        categories: get().categories.filter((c) => c.id !== id),
+        // 后端删除时已将引用计划的 category_id 置空，本地同步避免残留失效引用
+        plans: get().plans.map((p) => (p.category_id === id ? { ...p, category_id: null } : p)),
+      });
+      toast.success("分类已删除");
+    } catch (e) {
+      toast.error(`删除分类失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   // ── Tag workflows ────────────────────────────────────────
@@ -134,22 +171,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addTagWorkflow: async (input) => {
-    const workflow = await api.createTagWorkflow(input);
-    set({ tagWorkflows: [...get().tagWorkflows, workflow] });
-    return workflow;
+    try {
+      const workflow = await api.createTagWorkflow(input);
+      set({ tagWorkflows: [...get().tagWorkflows, workflow] });
+      toast.success("工作流创建成功");
+      return workflow;
+    } catch (e) {
+      toast.error(`创建工作流失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   editTagWorkflow: async (input) => {
-    const workflow = await api.updateTagWorkflow(input);
-    set({
-      tagWorkflows: get().tagWorkflows.map((w) => (w.id === workflow.id ? workflow : w)),
-    });
-    return workflow;
+    try {
+      const workflow = await api.updateTagWorkflow(input);
+      set({
+        tagWorkflows: get().tagWorkflows.map((w) => (w.id === workflow.id ? workflow : w)),
+      });
+      toast.success("工作流更新成功");
+      return workflow;
+    } catch (e) {
+      toast.error(`更新工作流失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   removeTagWorkflow: async (id) => {
-    await api.deleteTagWorkflow(id);
-    set({ tagWorkflows: get().tagWorkflows.filter((w) => w.id !== id) });
+    try {
+      await api.deleteTagWorkflow(id);
+      set({ tagWorkflows: get().tagWorkflows.filter((w) => w.id !== id) });
+      toast.success("工作流已删除");
+    } catch (e) {
+      toast.error(`删除工作流失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   // ── UI ──────────────────────────────────────────────────

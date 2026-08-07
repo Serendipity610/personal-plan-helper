@@ -91,3 +91,37 @@ export async function deleteTagWorkflow(id: string): Promise<boolean> {
 export async function listTagWorkflows(): Promise<TagWorkflow[]> {
   return invoke("list_tag_workflows");
 }
+
+// ---- Aggregates (Dashboard) ----
+
+import type {
+  DashboardStats,
+  CompletionTrendPoint,
+  DistributionItem,
+} from "@/types";
+
+/** 获取看板统计卡片数据 */
+export async function getDashboardStats(): Promise<DashboardStats> {
+  return invoke("get_dashboard_stats");
+}
+
+/** 获取近 N 天每日完成趋势 */
+export async function getCompletionTrend(
+  days: number,
+): Promise<CompletionTrendPoint[]> {
+  return invoke("get_completion_trend", { days });
+}
+
+/** 获取紧急度分布（按时间范围 days 过滤） */
+export async function getUrgencyDistribution(
+  days: number,
+): Promise<DistributionItem[]> {
+  return invoke("get_urgency_distribution", { days });
+}
+
+/** 获取分类分布（按时间范围 days 过滤） */
+export async function getCategoryDistribution(
+  days: number,
+): Promise<DistributionItem[]> {
+  return invoke("get_category_distribution", { days });
+}

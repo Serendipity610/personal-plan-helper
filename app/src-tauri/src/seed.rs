@@ -153,6 +153,36 @@ mod tests {
     }
 
     #[test]
+    fn test_seed_presets_dev_workflow_steps() {
+        let db = make_db();
+        run_seed(&db).unwrap();
+
+        let conn = db.conn.lock().unwrap();
+        let (name, steps): (String, String) = conn
+            .query_row(
+                "SELECT name, steps FROM tag_workflows WHERE id = ?1",
+                rusqlite::params![WF_DEV],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+
+        assert_eq!(name, "开发任务流程");
+        let parsed: Vec<String> = serde_json::from_str(&steps).unwrap();
+        assert_eq!(
+            parsed,
+            vec![
+                "需求分析",
+                "方案设计",
+                "代码开发",
+                "测试验证",
+                "已合入dev",
+                "已合入主干",
+                "闭环",
+            ]
+        );
+    }
+
+    #[test]
     fn test_seed_nullable_fields_are_null() {
         let db = make_db();
         run_seed(&db).unwrap();

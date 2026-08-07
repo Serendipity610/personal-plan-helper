@@ -9,7 +9,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Plus } from "lucide-react";
+import { Plus, Grid3X3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUADRANT_LABELS, getQuadrant, resolveQuadrantDrop } from "@/lib/quadrant";
 import { filterPlans } from "@/lib/filters";
@@ -18,6 +18,7 @@ import { PlanCard, PlanCardOverlay } from "@/components/plans/PlanCard";
 import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
 import { DeletePlanDialog } from "@/components/plans/DeletePlanDialog";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Plan, PlanStatus, Quadrant } from "@/types";
 
 const QUADRANT_ORDER: Quadrant[] = ["q1", "q2", "q3", "q4"];
@@ -60,6 +61,27 @@ function QuadrantDropzone({ quadrant, children }: QuadrantDropzoneProps) {
 
 function EmptyQuadrant() {
   return <p className="py-8 text-center text-sm text-muted-foreground">暂无计划</p>;
+}
+
+function MatrixSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {QUADRANT_ORDER.map((q) => (
+        <section
+          key={q}
+          className={cn("min-h-40 rounded-lg border bg-card p-3", QUADRANT_ACCENTS[q])}
+        >
+          <div className="mb-2">
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 export default function MatrixPage() {
@@ -149,6 +171,8 @@ export default function MatrixPage() {
     }
   }
 
+  const isEmpty = !loading && activePlans.length === 0;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -160,7 +184,17 @@ export default function MatrixPage() {
       </div>
 
       {loading && plans.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">加载中...</p>
+        <MatrixSkeleton />
+      ) : isEmpty ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <Grid3X3 className="mb-4 h-12 w-12 opacity-40" />
+          <p className="text-lg font-medium">暂无计划</p>
+          <p className="mt-1 text-sm">创建第一个计划，它将根据重要度与紧急度出现在对应象限</p>
+          <Button className="mt-4" onClick={openCreateDialog}>
+            <Plus className="mr-1 h-4 w-4" />
+            创建计划
+          </Button>
+        </div>
       ) : (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="grid gap-4 md:grid-cols-2">

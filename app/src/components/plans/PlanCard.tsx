@@ -1,5 +1,5 @@
 import { useDraggable } from "@dnd-kit/core";
-import { CalendarDays, MoreHorizontal } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDdl } from "@/lib/date";
 import { getDdlStatus } from "@/lib/ddl";
@@ -19,7 +19,7 @@ const DDL_BADGE_STYLES: Record<DdlStatus, string> = {
   normal: "",
 };
 
-import type { Category, Plan, PlanStatus } from "@/types";
+import type { Category, Plan, PlanStatus, TagWorkflow } from "@/types";
 
 export interface PlanCardActions {
   onEdit: (plan: Plan) => void;
@@ -30,15 +30,34 @@ export interface PlanCardActions {
 interface PlanCardProps extends PlanCardActions {
   plan: Plan;
   category: Category | undefined;
+  workflow?: TagWorkflow;
+  onStepChange?: (plan: Plan, newIndex: number) => void;
 }
 
 interface PlanCardContentProps {
   plan: Plan;
   category: Category | undefined;
   actions?: PlanCardActions;
+  workflowSteps?: string[];
+  onStepChange?: (plan: Plan, newIndex: number) => void;
 }
 
-function PlanCardContent({ plan, category, actions }: PlanCardContentProps) {
+/** Parse JSON steps array from a TagWorkflow */
+function parseSteps(workflow?: TagWorkflow): string[] {
+  if (!workflow) return [];
+  try {
+    return JSON.parse(workflow.steps) as string[];
+  } catch {
+    return [];
+  }
+}
+
+function PlanCardContent({ plan, category, actions, workflowSteps, onStepChange }: PlanCardContentProps) {
+  const hasSteps = workflowSteps && workflowSteps.length > 0;
+  const currentStep = hasSteps ? workflowSteps[plan.current_step_index] ?? "" : "";
+  const isFirst = plan.current_step_index === 0;
+  const isLast = hasSteps ? plan.current_step_index >= workflowSteps.length - 1 : true;
+
   return (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -115,13 +134,52 @@ function PlanCardContent({ plan, category, actions }: PlanCardContentProps) {
           );
         })()}
       </div>
+      {hasSteps && onStepChange && (
+        <div className="mt-2 flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            aria-label="上一步"
+            disabled={isFirst}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStepChange(plan, plan.current_step_index - 1);
+            }}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span className="min-w-0 flex-1 text-center text-xs text-muted-foreground">
+            {currentStep}
+          </span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {plan.current_step_index + 1}/{workflowSteps.length}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            aria-label="下一步"
+            disabled={isLast}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStepChange(plan, plan.current_step_index + 1);
+            }}
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
     </>
   );
 }
 
 /** 矩阵中的可拖拽计划卡片；点击卡片进入编辑 */
-export function PlanCard({ plan, category, onEdit, onDelete, onToggleStatus }: PlanCardProps) {
+export function PlanCard({ plan, category, workflow, onEdit, onDelete, onToggleStatus, onStepChange }: PlanCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: plan.id });
+  const workflowSteps = parseSteps(workflow);
 
   return (
     <div
@@ -141,6 +199,8 @@ export function PlanCard({ plan, category, onEdit, onDelete, onToggleStatus }: P
         plan={plan}
         category={category}
         actions={{ onEdit, onDelete, onToggleStatus }}
+        workflowSteps={workflowSteps}
+        onStepChange={onStepChange}
       />
     </div>
   );
@@ -150,13 +210,24 @@ export function PlanCard({ plan, category, onEdit, onDelete, onToggleStatus }: P
 export function PlanCardOverlay({
   plan,
   category,
+  workflow,
+  onStepChange,
 }: {
   plan: Plan;
   category: Category | undefined;
+  workflow?: TagWorkflow;
+  onStepChange?: (plan: Plan, newIndex: number) => void;
 }) {
+  const workflowSteps = parseSteps(workflow);
+
   return (
     <div className="w-64 rounded-lg border bg-card p-3 shadow-lg">
-      <PlanCardContent plan={plan} category={category} />
+      <PlanCardContent
+        plan={plan}
+        category={category}
+        workflowSteps={workflowSteps}
+        onStepChange={onStepChange}
+      />
     </div>
   );
 }

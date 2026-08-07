@@ -11,12 +11,16 @@ import { makePlan, makeCategory } from "@/test/fixtures";
 vi.mock("@/lib/api", () => ({
   listPlans: vi.fn(),
   listCategories: vi.fn(),
+  listTagWorkflows: vi.fn(),
   createPlan: vi.fn(),
   updatePlan: vi.fn(),
   deletePlan: vi.fn(),
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
+  createTagWorkflow: vi.fn(),
+  updateTagWorkflow: vi.fn(),
+  deleteTagWorkflow: vi.fn(),
 }));
 
 const mockedApi = vi.mocked(api);
@@ -60,6 +64,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.listPlans.mockResolvedValue(plans);
   mockedApi.listCategories.mockResolvedValue(categories);
+  mockedApi.listTagWorkflows.mockResolvedValue([]);
 });
 
 describe("AppLayout sidebar categories", () => {
@@ -213,7 +218,7 @@ describe("AppLayout category management dialog", () => {
     );
   });
 
-  it("deletes a custom category", async () => {
+  it("deletes a custom category after confirmation", async () => {
     const user = userEvent.setup();
     mockedApi.deleteCategory.mockResolvedValue(true);
     renderLayout();
@@ -221,6 +226,10 @@ describe("AppLayout category management dialog", () => {
 
     const dialog = await openManageDialog(user);
     await user.click(within(dialog).getByRole("button", { name: "删除分类 旅行计划" }));
+
+    // Confirm in the alert dialog
+    const confirmDialog = await screen.findByTestId("delete-category-dialog");
+    await user.click(within(confirmDialog).getByTestId("delete-category-confirm"));
 
     await waitFor(() => expect(mockedApi.deleteCategory).toHaveBeenCalledWith("cat-custom"));
     await waitFor(() =>
@@ -236,6 +245,10 @@ describe("AppLayout category management dialog", () => {
 
     const dialog = await openManageDialog(user);
     await user.click(within(dialog).getByRole("button", { name: "删除分类 旅行计划" }));
+
+    // Confirm in the alert dialog
+    const confirmDialog = await screen.findByTestId("delete-category-dialog");
+    await user.click(within(confirmDialog).getByTestId("delete-category-confirm"));
 
     await waitFor(() => expect(mockedApi.deleteCategory).toHaveBeenCalledWith("cat-custom"));
     // 引用该分类的计划被置空，不再渲染分类徽标

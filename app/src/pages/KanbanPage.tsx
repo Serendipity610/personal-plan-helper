@@ -10,8 +10,13 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { Plus } from "lucide-react";
 import { useAppStore, parseWorkflowSteps } from "@/store/useAppStore";
 import { PlanCard, PlanCardOverlay } from "@/components/plans/PlanCard";
+import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
+import { DeletePlanDialog } from "@/components/plans/DeletePlanDialog";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Plan } from "@/types";
 
 /** Group plans by step index (or null for unbound) */
@@ -76,11 +81,31 @@ function KanbanPlanCard({ plan }: { plan: Plan }) {
   );
 }
 
+function KanbanSkeleton() {
+  return (
+    <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(3, minmax(200px, 1fr))" }}>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="rounded-lg border bg-muted/30">
+          <div className="border-b px-3 py-2">
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <div className="space-y-2 p-2">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function KanbanPage() {
   const plans = useAppStore((s) => s.plans);
   const categories = useAppStore((s) => s.categories);
   const tagWorkflows = useAppStore((s) => s.tagWorkflows);
   const editPlan = useAppStore((s) => s.editPlan);
+  const removePlan = useAppStore((s) => s.removePlan);
+  const loading = useAppStore((s) => s.loading);
   const fetchPlans = useAppStore((s) => s.fetchPlans);
   const fetchTagWorkflows = useAppStore((s) => s.fetchTagWorkflows);
 
@@ -89,6 +114,9 @@ export default function KanbanPage() {
   const selectedWorkflowId: string | null =
     userSelectedWorkflowId ?? tagWorkflows[0]?.id ?? null;
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
 
   useEffect(() => {
     fetchPlans();
@@ -186,50 +214,76 @@ export default function KanbanPage() {
     editPlan({ id: plan.id, current_step_index: newIndex });
   }
 
+  async function handleConfirmDelete(plan: Plan) {
+    setDeletingPlan(null);
+    try {
+      await removePlan(plan.id);
+    } catch {
+      // keep current state
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">看板视图</h2>
-        <select
-          aria-label="选择工作流"
-          value={selectedWorkflowId ?? ""}
-          onChange={(e) => setUserSelectedWorkflowId(e.target.value || null)}
-          className="h-9 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          {tagWorkflows.map((wf) => (
-            <option key={wf.id} value={wf.id}>
-              {wf.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            aria-label="选择工作流"
+            value={selectedWorkflowId ?? ""}
+            onChange={(e) => setUserSelectedWorkflowId(e.target.value || null)}
+            className="h-9 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {tagWorkflows.map((wf) => (
+              <option key={wf.id} value={wf.id}>
+                {wf.name}
+              </option>
+            ))}
+          </select>
+          <Button onClick={() => { setEditingPlan(null); setFormOpen(true); }} size="sm">
+            <Plus className="mr-1 h-4 w-4" />
+            新建计划
+          </Button>
+        </div>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div
-          className="grid gap-4"
-          style={{ gridTemplateColumns: `repeat(${Math.min(columns.length, 7)}, minmax(200px, 1fr))` }}
+      {loading && plans.length === 0 ? (
+        <KanbanSkeleton />
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
         >
-          {columns.map((col) => (
-            <KanbanColumn key={col.key} col={col} />
-          ))}
-        </div>
+          <div
+            className="grid gap-4"
+            style={{ gridTemplateColumns: `repeat(${Math.min(columns.length, 7)}, minmax(200px, 1fr))` }}
+          >
+            {columns.map((col) => (
+              <KanbanColumn key={col.key} col={col} />
+            ))}
+          </div>
 
-        <DragOverlay>
-          {activePlan && (
-            <PlanCardOverlay
-              plan={activePlan}
-              category={getCategory(activePlan.category_id)}
-              workflow={selectedWorkflow ?? undefined}
-              onStepChange={handleStepChange}
-            />
-          )}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activePlan && (
+              <PlanCardOverlay
+                plan={activePlan}
+                category={getCategory(activePlan.category_id)}
+                workflow={selectedWorkflow ?? undefined}
+                onStepChange={handleStepChange}
+              />
+            )}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {formOpen && <PlanFormDialog onOpenChange={setFormOpen} plan={editingPlan} />}
+      <DeletePlanDialog
+        plan={deletingPlan}
+        onOpenChange={(open) => !open && setDeletingPlan(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

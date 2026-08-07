@@ -135,3 +135,34 @@ export type PlanSortKey = "importance" | "urgency" | "ddl" | "created_at";
 
 /** 排序方向 */
 export type SortDirection = "asc" | "desc";
+
+// ============================================================
+// 看板数据类型 — 与 Rust aggregates.rs 保持同步
+// ============================================================
+
+/** 看板统计卡片数据 */
+export interface DashboardStats {
+  total_plans: number;
+  completed_plans: number;
+  completion_rate: number;
+  today_pending: number;
+  overdue_count: number;
+  week_change: number;
+}
+
+/** 每日完成趋势数据点 */
+export interface CompletionTrendPoint {
+  date: string;
+  count: number;
+}
+
+/** 分布数据项（紧急度分布、分类分布共用） */
+export interface DistributionItem {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
+/** 看板时间段 */
+export type DashboardPeriod = "week" | "month" | "quarter" | "year";

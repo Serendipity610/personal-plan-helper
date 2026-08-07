@@ -11,6 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Category } from "@/types";
@@ -42,6 +52,7 @@ export function CategoryManageDialog({ onOpenChange }: CategoryManageDialogProps
   const [color, setColor] = useState(CATEGORY_COLORS[0]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
   const editingCategory = categories.find((c) => c.id === editingId) ?? null;
   const isEdit = editingCategory !== null;
@@ -85,6 +96,7 @@ export function CategoryManageDialog({ onOpenChange }: CategoryManageDialogProps
   }
 
   async function handleDelete(category: Category) {
+    setDeletingCategory(null);
     try {
       await removeCategory(category.id);
       if (editingId === category.id) startCreate();
@@ -134,7 +146,7 @@ export function CategoryManageDialog({ onOpenChange }: CategoryManageDialogProps
                   className="h-7 text-destructive"
                   aria-label={`删除分类 ${category.name}`}
                   disabled={category.is_default}
-                  onClick={() => handleDelete(category)}
+                  onClick={() => setDeletingCategory(category)}
                 >
                   删除
                 </Button>
@@ -187,6 +199,31 @@ export function CategoryManageDialog({ onOpenChange }: CategoryManageDialogProps
           </form>
         </div>
       </DialogContent>
+
+      {/* Confirmation dialog for category deletion */}
+      <AlertDialog
+        open={deletingCategory !== null}
+        onOpenChange={(open) => !open && setDeletingCategory(null)}
+      >
+        <AlertDialogContent data-testid="delete-category-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除分类</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除分类「{deletingCategory?.name}」吗？该分类下的计划将变为未分类，此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-category-cancel">取消</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="delete-category-confirm"
+              className="bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90"
+              onClick={() => deletingCategory && handleDelete(deletingCategory)}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

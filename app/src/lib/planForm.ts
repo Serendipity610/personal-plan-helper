@@ -12,6 +12,7 @@ export interface PlanFormValues {
   ddl: string | null;
   periodType: PeriodType;
   periodValue: string;
+  tagWorkflowId: string | null;
 }
 
 export function toPlanFormValues(plan: Plan): PlanFormValues {
@@ -24,6 +25,7 @@ export function toPlanFormValues(plan: Plan): PlanFormValues {
     ddl: formatDdl(plan.ddl) || null,
     periodType: (plan.period_type as PeriodType) ?? null,
     periodValue: plan.period_value ?? "",
+    tagWorkflowId: plan.tag_workflow_id ?? null,
   };
 }
 

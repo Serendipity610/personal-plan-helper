@@ -8,6 +8,15 @@ afterEach(() => {
 });
 
 // jsdom lacks these browser APIs that Radix/dnd-kit components rely on
+
+// dnd-kit's Optimized droppable-measuring frequency batches on rAF; without it
+// droppable rects are never measured and drag collisions silently fail.
+if (!globalThis.requestAnimationFrame) {
+  globalThis.requestAnimationFrame = (cb: FrameRequestCallback) =>
+    setTimeout(() => cb(performance.now()), 16);
+  globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id);
+}
+
 class ResizeObserverStub {
   observe() {}
   unobserve() {}

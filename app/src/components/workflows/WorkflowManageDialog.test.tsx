@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useAppStore } from "@/store/useAppStore";
 import * as api from "@/lib/api";
@@ -112,13 +112,17 @@ describe("WorkflowManageDialog", () => {
     expect(screen.getByText("工作流名称不能为空")).toBeInTheDocument();
   });
 
-  it("deletes a workflow", async () => {
+  it("deletes a workflow after confirmation", async () => {
     const user = userEvent.setup();
     mockedApi.deleteTagWorkflow.mockResolvedValueOnce(true);
     renderDialog();
 
     const deleteBtns = screen.getAllByLabelText(/删除工作流/);
     await user.click(deleteBtns[0]);
+
+    // Confirmation dialog should appear
+    const confirmDialog = await screen.findByTestId("delete-workflow-dialog");
+    await user.click(within(confirmDialog).getByTestId("delete-workflow-confirm"));
 
     await waitFor(() => {
       expect(mockedApi.deleteTagWorkflow).toHaveBeenCalledWith("wf-1");
@@ -195,5 +199,70 @@ describe("WorkflowManageDialog", () => {
     const reorderControls = screen.queryAllByRole("button", { name: /拖拽|排序|上移|下移/ });
 
     expect(moveUp.length + moveDown.length + reorderControls.length).toBeGreaterThan(0);
+  });
+
+  it("moves a step down when clicking the down button", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getAllByLabelText(/编辑工作流/)[0]);
+
+    // wf-1 step order: [需求分析, 开发, 测试]
+    const downBtns = screen.getAllByLabelText("下移步骤");
+    await user.click(downBtns[0]); // move 需求分析 down one
+
+    const stepInputs = screen.getAllByPlaceholderText(/步骤 \d/);
+    expect(stepInputs[0]).toHaveValue("开发");
+    expect(stepInputs[1]).toHaveValue("需求分析");
+    expect(stepInputs[2]).toHaveValue("测试");
+  });
+
+  it("moves a step up when clicking the up button", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getAllByLabelText(/编辑工作流/)[0]);
+
+    const upBtns = screen.getAllByLabelText("上移步骤");
+    await user.click(upBtns[2]); // move 测试 up one
+
+    const stepInputs = screen.getAllByPlaceholderText(/步骤 \d/);
+    expect(stepInputs[0]).toHaveValue("需求分析");
+    expect(stepInputs[1]).toHaveValue("测试");
+    expect(stepInputs[2]).toHaveValue("开发");
+  });
+
+  it("disables up on first step and down on last step", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getAllByLabelText(/编辑工作流/)[0]);
+
+    const upBtns = screen.getAllByLabelText("上移步骤");
+    const downBtns = screen.getAllByLabelText("下移步骤");
+
+    expect(upBtns[0]).toBeDisabled();
+    expect(downBtns[0]).not.toBeDisabled();
+    expect(downBtns[2]).toBeDisabled();
+    expect(upBtns[2]).not.toBeDisabled();
+  });
+
+  it("submits reordered steps when saving after reorder", async () => {
+    const user = userEvent.setup();
+    mockedApi.updateTagWorkflow.mockResolvedValueOnce(
+      makeTagWorkflow({ id: "wf-1", name: "开发流程", steps: JSON.stringify(["开发", "需求分析", "测试"]) }),
+    );
+    renderDialog();
+    await user.click(screen.getAllByLabelText(/编辑工作流/)[0]);
+
+    const downBtns = screen.getAllByLabelText("下移步骤");
+    await user.click(downBtns[0]); // swap first two steps
+
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(mockedApi.updateTagWorkflow).toHaveBeenCalledWith({
+        id: "wf-1",
+        name: "开发流程",
+        steps: JSON.stringify(["开发", "需求分析", "测试"]),
+      });
+    });
   });
 });

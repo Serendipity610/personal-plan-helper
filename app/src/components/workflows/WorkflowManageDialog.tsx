@@ -9,6 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
@@ -30,6 +40,7 @@ export function WorkflowManageDialog({ onOpenChange }: WorkflowManageDialogProps
   const [steps, setSteps] = useState<string[]>([""]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingWorkflow, setDeletingWorkflow] = useState<TagWorkflow | null>(null);
 
   const editingWorkflow = tagWorkflows.find((w) => w.id === editingId) ?? null;
   const isEdit = editingWorkflow !== null;
@@ -111,6 +122,7 @@ export function WorkflowManageDialog({ onOpenChange }: WorkflowManageDialogProps
   }
 
   async function handleDelete(workflow: TagWorkflow) {
+    setDeletingWorkflow(null);
     try {
       await removeTagWorkflow(workflow.id);
       if (editingId === workflow.id) startCreate();
@@ -162,7 +174,7 @@ export function WorkflowManageDialog({ onOpenChange }: WorkflowManageDialogProps
                     size="sm"
                     className="h-7 text-destructive"
                     aria-label={`删除工作流 ${workflow.name}`}
-                    onClick={() => handleDelete(workflow)}
+                    onClick={() => setDeletingWorkflow(workflow)}
                   >
                     删除
                   </Button>
@@ -260,6 +272,31 @@ export function WorkflowManageDialog({ onOpenChange }: WorkflowManageDialogProps
           </form>
         </div>
       </DialogContent>
+
+      {/* Confirmation dialog for workflow deletion */}
+      <AlertDialog
+        open={deletingWorkflow !== null}
+        onOpenChange={(open) => !open && setDeletingWorkflow(null)}
+      >
+        <AlertDialogContent data-testid="delete-workflow-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除工作流</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除工作流「{deletingWorkflow?.name}」吗？关联的计划将解除工作流绑定，此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-workflow-cancel">取消</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="delete-workflow-confirm"
+              className="bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90"
+              onClick={() => deletingWorkflow && handleDelete(deletingWorkflow)}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

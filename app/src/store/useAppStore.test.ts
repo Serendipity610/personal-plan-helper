@@ -161,10 +161,12 @@ describe("useAppStore category actions", () => {
 
 describe("useAppStore global filters", () => {
   beforeEach(() => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     useAppStore.setState({
       plans: [
-        makePlan({ id: "a", category_id: "c1", status: "active", ddl: "2026-08-07" }),
-        makePlan({ id: "b", category_id: "c2", status: "completed", ddl: "2026-08-07" }),
+        makePlan({ id: "a", category_id: "c1", status: "active", ddl: today }),
+        makePlan({ id: "b", category_id: "c2", status: "completed", ddl: today }),
         makePlan({ id: "c", category_id: "c1", status: "active", ddl: null }),
       ],
       categories: [],

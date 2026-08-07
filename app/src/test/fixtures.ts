@@ -1,4 +1,4 @@
-import type { Plan, Category } from "@/types";
+import type { Plan, Category, TagWorkflow } from "@/types";
 
 export function makePlan(overrides: Partial<Plan> = {}): Plan {
   return {
@@ -29,6 +29,16 @@ export function makeCategory(overrides: Partial<Category> = {}): Category {
     icon: "briefcase",
     sort_order: 1,
     is_default: false,
+    created_at: "2026-08-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+export function makeTagWorkflow(overrides: Partial<TagWorkflow> = {}): TagWorkflow {
+  return {
+    id: "wf-1",
+    name: "开发任务流程",
+    steps: JSON.stringify(["需求分析", "方案设计", "代码开发", "测试验证"]),
     created_at: "2026-08-01T00:00:00Z",
     ...overrides,
   };

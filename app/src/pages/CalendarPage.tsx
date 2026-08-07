@@ -19,13 +19,15 @@ import {
   isToday,
 } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { filterPlans } from "@/lib/filters";
 import { getDdlStatus } from "@/lib/ddl";
 import { formatDdl } from "@/lib/date";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
 import type { Plan } from "@/types";
 import type { DdlStatus } from "@/lib/ddl";
 
@@ -376,6 +378,17 @@ function YearView({
   );
 }
 
+function CalendarSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-center">
+        <Skeleton className="h-10 w-64" />
+      </div>
+      <Skeleton className="h-96 w-full" />
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────
 
 export default function CalendarPage() {
@@ -400,6 +413,8 @@ export default function CalendarPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
 
   // Store the initial "now" for consistent DDL calculations during the session
   const [now] = useState(new Date());
@@ -484,6 +499,19 @@ export default function CalendarPage() {
     }
   }, [viewMode]);
 
+  // ── Loading state ──
+  if (loading && plans.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold tracking-tight">日历视图</h2>
+          <PeriodTabs value={viewMode} onChange={setViewMode} />
+        </div>
+        <CalendarSkeleton />
+      </div>
+    );
+  }
+
   // ── Empty state ──
   if (!loading && plans.length === 0) {
     return (
@@ -496,7 +524,12 @@ export default function CalendarPage() {
           <CalendarDays className="mb-4 h-12 w-12 opacity-40" />
           <p className="text-lg font-medium">暂无计划</p>
           <p className="mt-1 text-sm">创建计划后即可在此查看日历视图</p>
+          <Button className="mt-4" onClick={() => { setEditingPlan(null); setFormOpen(true); }}>
+            <Plus className="mr-1 h-4 w-4" />
+            创建计划
+          </Button>
         </div>
+        {formOpen && <PlanFormDialog onOpenChange={setFormOpen} plan={editingPlan} />}
       </div>
     );
   }
@@ -505,7 +538,13 @@ export default function CalendarPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">日历视图</h2>
-        <PeriodTabs value={viewMode} onChange={setViewMode} />
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => { setEditingPlan(null); setFormOpen(true); }}>
+            <Plus className="mr-1 h-4 w-4" />
+            新建计划
+          </Button>
+          <PeriodTabs value={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {/* Period navigation */}
@@ -539,6 +578,8 @@ export default function CalendarPage() {
           <YearView plans={plans} date={currentDate} onQuarterClick={handleYearQuarterClick} />
         )}
       </div>
+
+      {formOpen && <PlanFormDialog onOpenChange={setFormOpen} plan={editingPlan} />}
     </div>
   );
 }

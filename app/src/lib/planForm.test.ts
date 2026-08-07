@@ -14,6 +14,7 @@ describe("validatePlanForm", () => {
         ddl: null,
         periodType: null,
         periodValue: "",
+        tagWorkflowId: null,
       }),
     ).toEqual({ title: "标题不能为空" });
     expect(
@@ -26,6 +27,7 @@ describe("validatePlanForm", () => {
         ddl: null,
         periodType: null,
         periodValue: "",
+        tagWorkflowId: null,
       }),
     ).toEqual({ title: "标题不能为空" });
   });
@@ -41,6 +43,7 @@ describe("validatePlanForm", () => {
         ddl: null,
         periodType: null,
         periodValue: "",
+        tagWorkflowId: null,
       }),
     ).toEqual({});
   });
@@ -65,6 +68,15 @@ describe("toPlanFormValues", () => {
       ddl: "2026-08-15",
       periodType: null,
       periodValue: "",
+      tagWorkflowId: null,
     });
+  });
+
+  it("maps tag_workflow_id to tagWorkflowId", () => {
+    const plan = makePlan({
+      tag_workflow_id: "wf-1",
+      current_step_index: 0,
+    });
+    expect(toPlanFormValues(plan).tagWorkflowId).toBe("wf-1");
   });
 });

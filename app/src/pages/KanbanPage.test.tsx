@@ -1,10 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { useAppStore } from "@/store/useAppStore";
 import * as api from "@/lib/api";
 import { makePlan, makeCategory, makeTagWorkflow } from "@/test/fixtures";
 import KanbanPage from "@/pages/KanbanPage";
+import {
+  dragPointer,
+  installRectMock,
+  restoreRectMock,
+  setElementRect,
+  setOverlayRect,
+  setTestRect,
+} from "@/test/dnd";
 
 vi.mock("@/lib/api", () => ({
   listPlans: vi.fn(),
@@ -152,16 +160,19 @@ describe("KanbanPage", () => {
   });
 
   // ② 0 templates + no plans → empty 未分类 column still rendered
-  it("renders empty 未分类 column when no workflows and no plans", () => {
+  it("renders empty 未分类 column when no workflows and no plans", async () => {
     useAppStore.setState({ tagWorkflows: [], plans: [] });
 
     renderPage();
 
-    expect(screen.getByText("未分类")).toBeInTheDocument();
-    // Count badge should show 0
-    expect(screen.getByText("0")).toBeInTheDocument();
-    // Empty placeholder text
-    expect(screen.getByText("暂无计划")).toBeInTheDocument();
+    // Wait for the loading → kanban transition
+    await screen.findByText("未分类");
+    // Count badges should show 0 (multiple columns have count 0)
+    const zeros = screen.getAllByText("0");
+    expect(zeros.length).toBeGreaterThan(0);
+    // Empty placeholder text (multiple columns have this text)
+    const emptyTexts = screen.getAllByText("暂无计划");
+    expect(emptyTexts.length).toBeGreaterThan(0);
   });
 
   // ③ Multiple templates, select A → only A's step plans + unbound plans
@@ -211,4 +222,111 @@ describe("KanbanPage", () => {
 
   // ⑤ Drag & step navigation behavior preserved — existing tests above cover this
   //   (tests "renders columns", "places plans", "updates plan step" etc.)
+
+  // Technical constraint: 看板至少支持 2~7 列显示
+  // 一个超过 7 步的工作流，所有步骤列仍须渲染（列数上限只影响单行网格列数，不应截断列）
+  it("renders all step columns even when a workflow has more than 7 steps", async () => {
+    const bigWf = makeTagWorkflow({
+      id: "wf-big",
+      name: "长流程",
+      steps: JSON.stringify(["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"]),
+    });
+    useAppStore.setState({
+      tagWorkflows: [bigWf],
+      plans: [],
+    });
+    mockedApi.listTagWorkflows.mockResolvedValue([bigWf]);
+
+    renderPage();
+
+    for (const s of ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"]) {
+      expect(await screen.findByText(s)).toBeInTheDocument();
+    }
+    expect(screen.getByText("未分类")).toBeInTheDocument();
+  });
+});
+
+describe("KanbanPage drag to advance step", () => {
+  afterEach(restoreRectMock);
+
+  /** Find a column's droppable element by its header title. */
+  function findColumnByTitle(title: string): HTMLElement | null {
+    const headers = Array.from(document.querySelectorAll<HTMLElement>("span"));
+    const header = headers.find(
+      (s) => s.textContent?.trim() === title && s.className.includes("text-sm font-medium"),
+    );
+    if (!header) return null;
+    return header.parentElement?.parentElement ?? null;
+  }
+
+  it("drags a plan card to a later step column and advances the step", async () => {
+    mockedApi.updatePlan.mockResolvedValueOnce(
+      makePlan({ id: "plan-1", title: "需求任务", current_step_index: 1, tag_workflow_id: "wf-1" }),
+    );
+    // fetchPlans must not wipe the store plans; resolve with the current set.
+    mockedApi.listPlans.mockResolvedValue(useAppStore.getState().plans);
+    installRectMock();
+    renderPage();
+    await screen.findByText("需求任务");
+
+    const step0 = findColumnByTitle("需求");
+    const step1 = findColumnByTitle("设计");
+    const step2 = findColumnByTitle("开发");
+    const unclassified = findColumnByTitle("未分类");
+    expect(step0).not.toBeNull();
+    expect(step1).not.toBeNull();
+    expect(step2).not.toBeNull();
+    expect(unclassified).not.toBeNull();
+
+    // Horizontal column layout; plan-1 sits in step-0 (需求).
+    setElementRect(step0!, { x: 0, y: 0, width: 150, height: 200 });
+    setElementRect(step1!, { x: 150, y: 0, width: 150, height: 200 });
+    setElementRect(step2!, { x: 300, y: 0, width: 150, height: 200 });
+    setElementRect(unclassified!, { x: 450, y: 0, width: 150, height: 200 });
+    setTestRect("plan-card-plan-1", { x: 10, y: 10, width: 130, height: 80 });
+    setOverlayRect({ x: 10, y: 10, width: 130, height: 80 });
+
+    const card = screen.getByTestId("plan-card-plan-1");
+    // Drop into the middle of step-1 (设计): the translated card is closest to it.
+    await dragPointer(card, { x: 50, y: 50 }, { x: 225, y: 100 });
+
+    await waitFor(() =>
+      expect(mockedApi.updatePlan).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "plan-1", tag_workflow_id: "wf-1", current_step_index: 1 }),
+      ),
+    );
+  });
+
+  it("drags a plan card back to 未分类 and detaches its workflow", async () => {
+    mockedApi.updatePlan.mockResolvedValueOnce(
+      makePlan({ id: "plan-1", title: "需求任务", tag_workflow_id: null, current_step_index: 0 }),
+    );
+    mockedApi.listPlans.mockResolvedValue(useAppStore.getState().plans);
+    installRectMock();
+    renderPage();
+    await screen.findByText("需求任务");
+
+    const step0 = findColumnByTitle("需求");
+    const step1 = findColumnByTitle("设计");
+    const unclassified = findColumnByTitle("未分类");
+    expect(step0).not.toBeNull();
+    expect(step1).not.toBeNull();
+    expect(unclassified).not.toBeNull();
+
+    setElementRect(step0!, { x: 0, y: 0, width: 150, height: 200 });
+    setElementRect(step1!, { x: 150, y: 0, width: 150, height: 200 });
+    setElementRect(unclassified!, { x: 450, y: 0, width: 150, height: 200 });
+    setTestRect("plan-card-plan-1", { x: 10, y: 10, width: 130, height: 80 });
+    setOverlayRect({ x: 10, y: 10, width: 130, height: 80 });
+
+    const card = screen.getByTestId("plan-card-plan-1");
+    // Drop far to the right, over the 未分类 column (center x=525).
+    await dragPointer(card, { x: 50, y: 50 }, { x: 525, y: 100 });
+
+    await waitFor(() =>
+      expect(mockedApi.updatePlan).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "plan-1", tag_workflow_id: null, current_step_index: 0 }),
+      ),
+    );
+  });
 });

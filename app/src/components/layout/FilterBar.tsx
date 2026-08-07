@@ -1,4 +1,4 @@
-import { Settings2 } from "lucide-react";
+import { Settings2, Workflow } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { STATUS_OPTIONS, TIME_RANGE_OPTIONS } from "@/lib/filters";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,10 @@ import type { PlanStatus, TimeRange } from "@/types";
 
 interface FilterBarProps {
   onManageClick: () => void;
+  onWorkflowManageClick?: () => void;
 }
 
-export function FilterBar({ onManageClick }: FilterBarProps) {
+export function FilterBar({ onManageClick, onWorkflowManageClick }: FilterBarProps) {
   const categories = useAppStore((s) => s.categories);
   const selectedCategoryId = useAppStore((s) => s.selectedCategoryId);
   const selectedStatus = useAppStore((s) => s.selectedStatus);
@@ -82,6 +83,19 @@ export function FilterBar({ onManageClick }: FilterBarProps) {
         <Settings2 className="mr-1 h-3.5 w-3.5" />
         分类管理
       </Button>
+
+      {onWorkflowManageClick && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={onWorkflowManageClick}
+          aria-label="工作流管理"
+        >
+          <Workflow className="mr-1 h-3.5 w-3.5" />
+          工作流管理
+        </Button>
+      )}
     </div>
   );
 }
