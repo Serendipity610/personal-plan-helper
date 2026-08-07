@@ -118,6 +118,50 @@ mod tests {
     }
 
     #[test]
+    fn test_migration_v3_importance_urgency_are_real() {
+        // 滑块步进 0.5，2.5 等半格分数需存入 REAL 列（RED: 当前列为 INTEGER）
+        let db = make_db();
+        let conn = db.conn.lock().unwrap();
+        let info: Vec<(String, String)> = conn
+            .prepare("PRAGMA table_info(plans)")
+            .unwrap()
+            .query_map([], |r| Ok((r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let importance_type = info.iter().find(|(name, _)| name == "importance").unwrap().1.clone();
+        let urgency_type = info.iter().find(|(name, _)| name == "urgency").unwrap().1.clone();
+        assert_eq!(importance_type, "REAL");
+        assert_eq!(urgency_type, "REAL");
+    }
+
+    #[test]
+    fn test_migration_v3_preserves_existing_plan_rows() {
+        // 已有数据升级到 v3 时必须完整保留
+        let db = make_db();
+        {
+            let conn = db.conn.lock().unwrap();
+            conn.execute(
+                "INSERT INTO plans (id, title, importance, urgency, created_at, updated_at)
+                 VALUES ('p-legacy', '旧计划', 3, 2, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+                [],
+            )
+            .unwrap();
+        }
+        drop(db.conn.lock().unwrap());
+        // 再次运行迁移（模拟重启升级），数据必须保留
+        db.run_migrations().unwrap();
+        let conn = db.conn.lock().unwrap();
+        let (importance, urgency): (f64, f64) = conn
+            .query_row("SELECT importance, urgency FROM plans WHERE id = 'p-legacy'", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(importance, 3.0);
+        assert_eq!(urgency, 2.0);
+    }
+
+    #[test]
     fn test_migration_v2_adds_is_default_column() {
         let db = make_db();
         let conn = db.conn.lock().unwrap();

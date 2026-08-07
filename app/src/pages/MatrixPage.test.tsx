@@ -147,6 +147,34 @@ describe("MatrixPage create flow", () => {
     expect(await screen.findByTestId("plan-card-new-1")).toBeInTheDocument();
   });
 
+  it("creates a plan with half-step scores (2.5 at the quadrant threshold)", async () => {
+    // 滑块 step=0.5，2.5 恰为象限阈值；后端必须接受小数（真实失败点在后端 serde，见 models.rs RED 测试）
+    const user = userEvent.setup();
+    mockedApi.createPlan.mockResolvedValue(
+      makePlan({ id: "new-half", title: "临界计划", importance: 2.5, urgency: 2.5 }),
+    );
+    renderPage();
+    await screen.findByTestId("quadrant-q1");
+
+    await user.click(screen.getByRole("button", { name: "新建计划" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.type(within(dialog).getByLabelText("标题"), "临界计划");
+
+    const sliders = within(dialog).getAllByRole("slider");
+    sliders[0].focus();
+    await user.keyboard("{ArrowRight}"); // 重要度 2 → 2.5
+    sliders[1].focus();
+    await user.keyboard("{ArrowRight}"); // 紧急度 2 → 2.5
+    await user.click(within(dialog).getByRole("button", { name: "创建" }));
+
+    await waitFor(() =>
+      expect(mockedApi.createPlan).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "临界计划", importance: 2.5, urgency: 2.5 }),
+      ),
+    );
+  });
+
   it("rejects a submission with an empty title", async () => {
     const user = userEvent.setup();
     renderPage();

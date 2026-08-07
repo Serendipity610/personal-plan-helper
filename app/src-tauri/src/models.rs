@@ -238,6 +238,23 @@ mod tests {
     }
 
     #[test]
+    fn test_create_plan_request_accepts_half_step_importance() {
+        // 滑块步进 0.5，2.5 恰为象限阈值临界值，必须能被后端解析（RED: 当前 i32 解析失败）
+        let json = r#"{"title":"临界任务","importance":2.5,"urgency":2.5}"#;
+        let req: CreatePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.importance, 2.5);
+        assert_eq!(req.urgency, 2.5);
+    }
+
+    #[test]
+    fn test_update_plan_request_accepts_half_step_importance() {
+        let json = r#"{"id":"plan-1","importance":2.5,"urgency":1.5}"#;
+        let req: UpdatePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.importance, Some(2.5));
+        assert_eq!(req.urgency, Some(1.5));
+    }
+
+    #[test]
     fn test_update_plan_mixed_fields() {
         // Combine absent, explicit-null, and set in one request
         let json = r#"{
