@@ -5,6 +5,7 @@ mod seed;
 
 use db::Database;
 use std::path::PathBuf;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -18,22 +19,31 @@ pub fn run() {
 
             let database = Database::open(app_data_dir).expect("failed to initialize database");
 
-            // Run seed data for development
-            seed::run_seed(&database);
+            // Run seed data for development — log error but don't crash
+            if let Err(e) = seed::run_seed(&database) {
+                eprintln!("seed data warning (app will still start): {}", e);
+            }
 
             app.manage(database);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Plans
             commands::plans::create_plan,
             commands::plans::get_plan,
             commands::plans::update_plan,
             commands::plans::delete_plan,
             commands::plans::list_plans,
+            // Categories
             commands::categories::create_category,
             commands::categories::list_categories,
+            commands::categories::update_category,
+            commands::categories::delete_category,
+            // Tag workflows
             commands::workflows::create_tag_workflow,
             commands::workflows::list_tag_workflows,
+            commands::workflows::update_tag_workflow,
+            commands::workflows::delete_tag_workflow,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

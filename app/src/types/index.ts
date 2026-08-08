@@ -20,6 +20,9 @@ export interface TagWorkflow {
   created_at: string;
 }
 
+/** 计划状态 */
+export type PlanStatus = "active" | "completed" | "cancelled";
+
 /** 计划/任务主实体 */
 export interface Plan {
   id: string;
@@ -34,7 +37,7 @@ export interface Plan {
   current_step_index: number;
   period_type: "daily" | "monthly" | "quarterly" | "yearly" | null;
   period_value: string | null;
-  status: "active" | "completed" | "cancelled";
+  status: PlanStatus;
   created_at: string;
   updated_at: string;
 }
@@ -93,10 +96,26 @@ export interface CreateCategoryRequest {
   sort_order?: number;
 }
 
+/** 更新分类请求 */
+export interface UpdateCategoryRequest {
+  id: string;
+  name?: string;
+  color?: string;
+  icon?: string;
+  sort_order?: number;
+}
+
 /** 创建工作流请求 */
 export interface CreateTagWorkflowRequest {
   name: string;
   steps: string; // JSON array string
+}
+
+/** 更新工作流请求 */
+export interface UpdateTagWorkflowRequest {
+  id: string;
+  name?: string;
+  steps?: string;
 }
 
 // ============================================================
@@ -107,10 +126,7 @@ export interface CreateTagWorkflowRequest {
 export type Quadrant = "q1" | "q2" | "q3" | "q4";
 
 /** 根据 importance/urgency 计算所在象限 */
-export function getQuadrant(
-  importance: number,
-  urgency: number
-): Quadrant {
+export function getQuadrant(importance: number, urgency: number): Quadrant {
   if (importance >= 2 && urgency >= 2) return "q1"; // 重要且紧急
   if (importance >= 2 && urgency < 2) return "q2"; // 重要不紧急
   if (importance < 2 && urgency >= 2) return "q3"; // 不重要紧急

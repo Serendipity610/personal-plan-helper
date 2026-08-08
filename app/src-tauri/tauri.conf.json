@@ -5,12 +5,11 @@
   "identifier": "com.personal-plan-helper.app",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "pnpm run dev",
+    "beforeBuildCommand": "pnpm run build"
   },
   "app": {
-    "title": "个人计划管理器",
     "windows": [
       {
         "title": "个人计划管理器",

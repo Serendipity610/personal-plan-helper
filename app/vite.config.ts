@@ -14,6 +14,12 @@ export default defineConfig({
   server: {
     // Tauri expects a fixed port; fail if that port is not available
     strictPort: true,
+    // Bind to IPv4 explicitly; Windows resolves "localhost" to IPv6 ::1
+    host: "127.0.0.1",
+    // Exclude Rust target dir from Vite's file watcher to avoid EBUSY
+    watch: {
+      ignored: ["**/src-tauri/**"],
+    },
   },
   // Env variables starting with TAURI_ will be exposed to tauri's source code
   envPrefix: ["VITE_", "TAURI_"],
