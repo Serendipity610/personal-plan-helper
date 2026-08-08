@@ -1,18 +1,21 @@
 import { create } from "zustand";
-import type { Plan, Category, TagWorkflow, PlanStatus } from "@/types";
+import type { Plan, Category, TagWorkflow, PlanStatus, TimeRange } from "@/types";
+import { filterPlans } from "@/lib/filters";
 import * as api from "@/lib/api";
+import { toast, toastApiError } from "@/lib/toast";
 
 // ── State shape ──────────────────────────────────────────────
 
-interface AppState {
+export interface AppState {
   // Data
   plans: Plan[];
   categories: Category[];
   tagWorkflows: TagWorkflow[];
 
-  // UI state
+  // UI state — 全局筛选条件
   selectedCategoryId: string | null;
   selectedStatus: PlanStatus | "all";
+  selectedTimeRange: TimeRange;
   loading: boolean;
   error: string | null;
 
@@ -37,6 +40,7 @@ interface AppState {
   // ── UI actions ──
   setSelectedCategoryId: (id: string | null) => void;
   setSelectedStatus: (status: PlanStatus | "all") => void;
+  setSelectedTimeRange: (range: TimeRange) => void;
   clearError: () => void;
 }
 
@@ -48,6 +52,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   tagWorkflows: [],
   selectedCategoryId: null,
   selectedStatus: "all",
+  selectedTimeRange: "all",
   loading: false,
   error: null,
 
@@ -60,28 +65,47 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ plans });
     } catch (e) {
       set({ error: `加载计划失败: ${String(e)}` });
+      toastApiError("加载计划", e);
     } finally {
       set({ loading: false });
     }
   },
 
   addPlan: async (input) => {
-    const plan = await api.createPlan(input);
-    set({ plans: [plan, ...get().plans] });
-    return plan;
+    try {
+      const plan = await api.createPlan(input);
+      set({ plans: [plan, ...get().plans] });
+      toast.success("计划创建成功");
+      return plan;
+    } catch (e) {
+      toast.error(`创建计划失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   editPlan: async (input) => {
-    const plan = await api.updatePlan(input);
-    set({
-      plans: get().plans.map((p) => (p.id === plan.id ? plan : p)),
-    });
-    return plan;
+    try {
+      const plan = await api.updatePlan(input);
+      set({
+        plans: get().plans.map((p) => (p.id === plan.id ? plan : p)),
+      });
+      toast.success("计划更新成功");
+      return plan;
+    } catch (e) {
+      toast.error(`更新计划失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   removePlan: async (id) => {
-    await api.deletePlan(id);
-    set({ plans: get().plans.filter((p) => p.id !== id) });
+    try {
+      await api.deletePlan(id);
+      set({ plans: get().plans.filter((p) => p.id !== id) });
+      toast.success("计划已删除");
+    } catch (e) {
+      toast.error(`删除计划失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   // ── Categories ───────────────────────────────────────────
@@ -92,26 +116,49 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ categories });
     } catch (e) {
       set({ error: `加载分类失败: ${String(e)}` });
+      toastApiError("加载分类", e);
     }
   },
 
   addCategory: async (input) => {
-    const category = await api.createCategory(input);
-    set({ categories: [...get().categories, category] });
-    return category;
+    try {
+      const category = await api.createCategory(input);
+      set({ categories: [...get().categories, category] });
+      toast.success("分类创建成功");
+      return category;
+    } catch (e) {
+      toast.error(`创建分类失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   editCategory: async (input) => {
-    const category = await api.updateCategory(input);
-    set({
-      categories: get().categories.map((c) => (c.id === category.id ? category : c)),
-    });
-    return category;
+    try {
+      const category = await api.updateCategory(input);
+      set({
+        categories: get().categories.map((c) => (c.id === category.id ? category : c)),
+      });
+      toast.success("分类更新成功");
+      return category;
+    } catch (e) {
+      toast.error(`更新分类失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   removeCategory: async (id) => {
-    await api.deleteCategory(id);
-    set({ categories: get().categories.filter((c) => c.id !== id) });
+    try {
+      await api.deleteCategory(id);
+      set({
+        categories: get().categories.filter((c) => c.id !== id),
+        // 后端删除时已将引用计划的 category_id 置空，本地同步避免残留失效引用
+        plans: get().plans.map((p) => (p.category_id === id ? { ...p, category_id: null } : p)),
+      });
+      toast.success("分类已删除");
+    } catch (e) {
+      toast.error(`删除分类失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   // ── Tag workflows ────────────────────────────────────────
@@ -122,32 +169,52 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ tagWorkflows: workflows });
     } catch (e) {
       set({ error: `加载工作流失败: ${String(e)}` });
+      toastApiError("加载工作流", e);
     }
   },
 
   addTagWorkflow: async (input) => {
-    const workflow = await api.createTagWorkflow(input);
-    set({ tagWorkflows: [...get().tagWorkflows, workflow] });
-    return workflow;
+    try {
+      const workflow = await api.createTagWorkflow(input);
+      set({ tagWorkflows: [...get().tagWorkflows, workflow] });
+      toast.success("工作流创建成功");
+      return workflow;
+    } catch (e) {
+      toast.error(`创建工作流失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   editTagWorkflow: async (input) => {
-    const workflow = await api.updateTagWorkflow(input);
-    set({
-      tagWorkflows: get().tagWorkflows.map((w) => (w.id === workflow.id ? workflow : w)),
-    });
-    return workflow;
+    try {
+      const workflow = await api.updateTagWorkflow(input);
+      set({
+        tagWorkflows: get().tagWorkflows.map((w) => (w.id === workflow.id ? workflow : w)),
+      });
+      toast.success("工作流更新成功");
+      return workflow;
+    } catch (e) {
+      toast.error(`更新工作流失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   removeTagWorkflow: async (id) => {
-    await api.deleteTagWorkflow(id);
-    set({ tagWorkflows: get().tagWorkflows.filter((w) => w.id !== id) });
+    try {
+      await api.deleteTagWorkflow(id);
+      set({ tagWorkflows: get().tagWorkflows.filter((w) => w.id !== id) });
+      toast.success("工作流已删除");
+    } catch (e) {
+      toast.error(`删除工作流失败: ${String(e)}`);
+      throw e;
+    }
   },
 
   // ── UI ──────────────────────────────────────────────────
 
   setSelectedCategoryId: (id) => set({ selectedCategoryId: id }),
   setSelectedStatus: (status) => set({ selectedStatus: status }),
+  setSelectedTimeRange: (range) => set({ selectedTimeRange: range }),
   clearError: () => set({ error: null }),
 }));
 
@@ -163,24 +230,13 @@ export function parseWorkflowSteps(workflow: TagWorkflow | null | undefined): st
   }
 }
 
-/** Map importance + urgency (0-4 each) to an Eisenhower quadrant */
-export function getQuadrant(importance: number, urgency: number): 1 | 2 | 3 | 4 {
-  if (importance >= 2.5 && urgency >= 2.5) return 1; // 重要紧急
-  if (importance >= 2.5 && urgency < 2.5) return 2; // 重要不紧急
-  if (importance < 2.5 && urgency >= 2.5) return 3; // 不重要紧急
-  return 4; // 不重要不紧急
-}
-
-/** Get a human-readable label for a quadrant */
-export function getQuadrantLabel(q: 1 | 2 | 3 | 4): string {
-  switch (q) {
-    case 1:
-      return "重要紧急";
-    case 2:
-      return "重要不紧急";
-    case 3:
-      return "不重要紧急";
-    case 4:
-      return "不重要不紧急";
-  }
+/** 按全局筛选条件（分类/状态/时间段）过滤计划 */
+export function selectFilteredPlans(
+  state: Pick<AppState, "plans" | "selectedCategoryId" | "selectedStatus" | "selectedTimeRange">,
+): Plan[] {
+  return filterPlans(state.plans, {
+    categoryId: state.selectedCategoryId,
+    status: state.selectedStatus,
+    timeRange: state.selectedTimeRange,
+  });
 }
