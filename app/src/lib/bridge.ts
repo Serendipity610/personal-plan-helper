@@ -19,12 +19,16 @@ export class BridgeUnavailableError extends Error {
   }
 }
 
-/** 检测当前运行环境是否提供 Tauri IPC bridge */
+/** 检测当前运行环境是否提供可用的 Tauri IPC bridge */
 function isBridgeAvailable(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    "__TAURI_INTERNALS__" in window
-  );
+  if (typeof window === "undefined") return false;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bridge = (window as any).__TAURI_INTERNALS__;
+  // __TAURI_INTERNALS__ must be a truthy object whose invoke is a function.
+  // Partial injection / polyfill / initialization failure can leave it
+  // undefined, null, or missing the invoke method — all count as unavailable.
+  return Boolean(bridge) && typeof bridge.invoke === "function";
 }
 
 /**

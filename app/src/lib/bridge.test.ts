@@ -103,6 +103,44 @@ describe("safeInvoke", () => {
 
     expect(result).toEqual([]);
   });
+
+  // ── Malformed bridge edge cases ───────────────────────────
+
+  it("throws BridgeUnavailableError when __TAURI_INTERNALS__ is undefined", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__TAURI_INTERNALS__ = undefined;
+
+    await expect(safeInvoke("list_categories")).rejects.toThrow(
+      BridgeUnavailableError,
+    );
+  });
+
+  it("throws BridgeUnavailableError when __TAURI_INTERNALS__ is null", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__TAURI_INTERNALS__ = null;
+
+    await expect(safeInvoke("list_categories")).rejects.toThrow(
+      BridgeUnavailableError,
+    );
+  });
+
+  it("throws BridgeUnavailableError when __TAURI_INTERNALS__ is an empty object (no invoke)", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__TAURI_INTERNALS__ = {};
+
+    await expect(safeInvoke("list_categories")).rejects.toThrow(
+      BridgeUnavailableError,
+    );
+  });
+
+  it("throws BridgeUnavailableError when __TAURI_INTERNALS__ has invoke that is not a function", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__TAURI_INTERNALS__ = { invoke: "not-a-function" };
+
+    await expect(safeInvoke("list_categories")).rejects.toThrow(
+      BridgeUnavailableError,
+    );
+  });
 });
 
 describe("BridgeUnavailableError", () => {
