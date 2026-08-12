@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanInlineEdit } from "@/components/plans/PlanInlineEdit";
 
@@ -137,6 +137,34 @@ describe("PlanInlineEdit", () => {
       expect(onSave).not.toHaveBeenCalled();
       await waitFor(() => {
         expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+      });
+    });
+
+    it("calls onSave exactly once when Enter is pressed, even if blur fires too", async () => {
+      // Regression: disabling the input on save triggers blur in real browsers,
+      // which would re-enter doSave and call onSave twice without a guard.
+      // Use a deferred promise so the component stays in saving state.
+      const pendingSaves: Array<() => void> = [];
+      const onSave = vi.fn().mockImplementation(
+        () => new Promise<void>((resolve) => { pendingSaves.push(resolve as () => void); }),
+      );
+      const { user } = renderEdit({ onSave });
+
+      await user.click(screen.getByText("原始标题"));
+      const input = screen.getByRole("textbox");
+      await user.clear(input);
+      await user.type(input, "新标题");
+      // Press Enter — this triggers doSave which sets saving=true
+      await user.keyboard("{Enter}");
+      // Component is now in saving state with disabled input.
+      // Simulate the blur that a real browser fires when a focused
+      // element becomes disabled.
+      fireEvent.blur(input);
+      // Now resolve the save
+      pendingSaves[0]?.();
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -287,6 +315,30 @@ describe("PlanInlineEdit", () => {
 
       await waitFor(() => {
         expect(onEditEnd).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("returns focus to the display element after successful save", async () => {
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      const { user } = renderEdit({ onSave });
+
+      await user.click(screen.getByText("原始标题"));
+      await user.keyboard("{Enter}");
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/编辑/)).toHaveFocus();
+      });
+    });
+
+    it("returns focus to the display element after cancel", async () => {
+      const onEditEnd = vi.fn();
+      const { user } = renderEdit({ onEditEnd });
+
+      await user.click(screen.getByText("原始标题"));
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/编辑/)).toHaveFocus();
       });
     });
   });

@@ -364,6 +364,29 @@ describe("ListPage inline title editing", () => {
         );
       });
     });
+
+    it("does not toggle cancelled plan status when badge is clicked", async () => {
+      const user = userEvent.setup();
+      // Add a cancelled plan fixture
+      const cancelledPlan = makePlan({
+        id: "p-cancelled",
+        title: "已取消任务",
+        status: "cancelled",
+        created_at: "2026-08-05T00:00:00Z",
+      });
+      mockedApi.listPlans.mockResolvedValue([...seedPlans, cancelledPlan]);
+      renderPage();
+      await screen.findByTestId("plan-row-p-cancelled");
+
+      const row = screen.getByTestId("plan-row-p-cancelled");
+      const statusBtn = within(row).getByLabelText(/切换状态: 已取消/);
+      await user.click(statusBtn);
+
+      // updatePlan should NOT be called for cancelled plans
+      expect(mockedApi.updatePlan).not.toHaveBeenCalled();
+      // Status should remain "已取消"
+      expect(within(row).getByText("已取消")).toBeInTheDocument();
+    });
   });
 
   describe("ListPage category quick menu", () => {
@@ -375,7 +398,7 @@ describe("ListPage inline title editing", () => {
       // The row with category "工作"
       const row = screen.getByTestId("plan-row-p-high");
       // Click on the category cell's dropdown trigger
-      await user.click(within(row).getByLabelText("更换分类"));
+      await user.click(within(row).getByLabelText(/更换分类/));
 
       // Should see the "无分类" option and available categories
       // Radix DropdownMenu renders in a portal — the option "工作" also appears,
@@ -401,7 +424,7 @@ describe("ListPage inline title editing", () => {
       await screen.findByTestId("plan-row-p-mid");
 
       const row = screen.getByTestId("plan-row-p-mid");
-      await user.click(within(row).getByLabelText("更换分类"));
+      await user.click(within(row).getByLabelText(/更换分类/));
       // "个人" only appears in the dropdown, not in the row
       await user.click(screen.getByText("个人"));
 
@@ -421,7 +444,7 @@ describe("ListPage inline title editing", () => {
       await screen.findByTestId("plan-row-p-high");
 
       const row = screen.getByTestId("plan-row-p-high");
-      await user.click(within(row).getByLabelText("更换分类"));
+      await user.click(within(row).getByLabelText(/更换分类/));
       await user.click(screen.getByText("无分类"));
 
       await waitFor(() => {
@@ -439,7 +462,7 @@ describe("ListPage inline title editing", () => {
       await screen.findByTestId("plan-row-p-high");
 
       const row = screen.getByTestId("plan-row-p-high");
-      await user.click(within(row).getByLabelText("象限快捷操作"));
+      await user.click(within(row).getByLabelText(/象限快捷操作/));
 
       expect(screen.getByText("重要紧急")).toBeInTheDocument();
       expect(screen.getByText("重要不紧急")).toBeInTheDocument();
@@ -461,7 +484,7 @@ describe("ListPage inline title editing", () => {
       await screen.findByTestId("plan-row-p-mid");
 
       const row = screen.getByTestId("plan-row-p-mid");
-      await user.click(within(row).getByLabelText("象限快捷操作"));
+      await user.click(within(row).getByLabelText(/象限快捷操作/));
       await user.click(screen.getByText("重要紧急"));
 
       await waitFor(() => {
