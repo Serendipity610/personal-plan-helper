@@ -318,9 +318,33 @@ describe("PlanInlineEdit", () => {
       });
     });
 
+  });
+
+  describe("focus behavior", () => {
+    it("does not steal focus on initial mount", () => {
+      // Render two instances to reproduce the bug: the last-rendered
+      // instance's focus-return effect would steal focus on mount.
+      render(
+        <div>
+          <PlanInlineEdit value="第一行标题" onSave={vi.fn().mockResolvedValue(undefined)} />
+          <PlanInlineEdit value="第二行标题" onSave={vi.fn().mockResolvedValue(undefined)} />
+        </div>,
+      );
+
+      // Neither display span should be focused on mount.
+      // activeElement should remain at body (or the container).
+      const first = screen.getByText("第一行标题");
+      const second = screen.getByText("第二行标题");
+      expect(first).not.toHaveFocus();
+      expect(second).not.toHaveFocus();
+    });
+
     it("returns focus to the display element after successful save", async () => {
       const onSave = vi.fn().mockResolvedValue(undefined);
       const { user } = renderEdit({ onSave });
+
+      // Sanity: display span does NOT have focus on mount
+      expect(screen.getByText("原始标题")).not.toHaveFocus();
 
       await user.click(screen.getByText("原始标题"));
       await user.keyboard("{Enter}");
@@ -333,6 +357,9 @@ describe("PlanInlineEdit", () => {
     it("returns focus to the display element after cancel", async () => {
       const onEditEnd = vi.fn();
       const { user } = renderEdit({ onEditEnd });
+
+      // Sanity: display span does NOT have focus on mount
+      expect(screen.getByText("原始标题")).not.toHaveFocus();
 
       await user.click(screen.getByText("原始标题"));
       await user.keyboard("{Escape}");
