@@ -1,14 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, List, Plus } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  ChevronDown,
+  Ellipsis,
+  List,
+  Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDdl } from "@/lib/date";
 import { filterPlans, sortPlans, type PlanSortKey, type SortDirection } from "@/lib/filters";
+import { QUADRANT_LABELS, getQuadrantPoint } from "@/lib/quadrant";
 import { useAppStore } from "@/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
 import { DeletePlanDialog } from "@/components/plans/DeletePlanDialog";
-import type { Plan, PlanStatus } from "@/types";
+import { PlanInlineEdit } from "@/components/plans/PlanInlineEdit";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { Plan, PlanStatus, Quadrant as QuadrantType } from "@/types";
 
 const SORT_COLUMNS: { key: PlanSortKey; label: string }[] = [
   { key: "importance", label: "重要度" },
@@ -28,6 +46,8 @@ const STATUS_STYLES: Record<PlanStatus, string> = {
   completed: "bg-green-500/10 text-green-600",
   cancelled: "bg-muted text-muted-foreground",
 };
+
+const QUADRANT_OPTIONS: QuadrantType[] = ["q1", "q2", "q3", "q4"];
 
 function ListSkeleton() {
   return (
@@ -147,6 +167,27 @@ export default function ListPage() {
     }
   }
 
+  // ── Inline action handlers ──────────────────────────────
+
+  async function handleSaveTitle(plan: Plan, newTitle: string) {
+    await editPlan({ id: plan.id, title: newTitle });
+  }
+
+  async function handleToggleStatus(plan: Plan) {
+    const nextStatus: PlanStatus =
+      plan.status === "active" ? "completed" : "active";
+    await editPlan({ id: plan.id, status: nextStatus });
+  }
+
+  async function handleChangeCategory(plan: Plan, categoryId: string | null) {
+    await editPlan({ id: plan.id, category_id: categoryId });
+  }
+
+  async function handleChangeQuadrant(plan: Plan, quadrant: QuadrantType) {
+    const point = getQuadrantPoint(quadrant);
+    await editPlan({ id: plan.id, importance: point.importance, urgency: point.urgency });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -257,9 +298,7 @@ export default function ListPage() {
                     className={cn(
                       "border-b last:border-0",
                       selected.has(plan.id) && "bg-accent/40",
-                      "cursor-pointer hover:bg-accent/30",
                     )}
-                    onClick={() => openEditDialog(plan)}
                   >
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <input
@@ -269,41 +308,148 @@ export default function ListPage() {
                         onChange={() => toggleSelect(plan.id)}
                       />
                     </td>
-                    <td className="max-w-64 truncate px-3 py-2 font-medium">{plan.title}</td>
-                    <td className="px-3 py-2">
-                      {category && (
-                        <span
-                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                          style={{ backgroundColor: `${category.color}1f`, color: category.color }}
-                        >
-                          {category.name}
-                        </span>
-                      )}
+                    {/* ── Title: inline editable ────────────── */}
+                    <td className="max-w-64 px-3 py-2">
+                      <PlanInlineEdit
+                        value={plan.title}
+                        onSave={(newTitle) => handleSaveTitle(plan, newTitle)}
+                      />
                     </td>
-                    <td className="px-3 py-2 tabular-nums">{plan.importance}</td>
+                    {/* ── Category: quick menu ──────────────── */}
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-0 font-normal"
+                            aria-label="更换分类"
+                          >
+                            {category ? (
+                              <span
+                                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                style={{
+                                  backgroundColor: `${category.color}1f`,
+                                  color: category.color,
+                                }}
+                              >
+                                {category.name}
+                                <ChevronDown className="ml-0.5 h-3 w-3" />
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                                未分类
+                                <ChevronDown className="h-3 w-3" />
+                              </span>
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem onSelect={() => handleChangeCategory(plan, null)}>
+                            <span className="text-muted-foreground">无分类</span>
+                            {!plan.category_id && <Check className="ml-auto h-4 w-4" />}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {categories.map((c) => (
+                            <DropdownMenuItem
+                              key={c.id}
+                              onSelect={() => handleChangeCategory(plan, c.id)}
+                            >
+                              <span
+                                className="inline-flex items-center gap-1.5"
+                                style={{ color: c.color }}
+                              >
+                                <span
+                                  className="inline-block h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: c.color }}
+                                />
+                                {c.name}
+                              </span>
+                              {plan.category_id === c.id && (
+                                <Check className="ml-auto h-4 w-4" />
+                              )}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                    {/* ── Importance & Urgency: quadrant quick menu ── */}
+                    <td className="px-3 py-2 tabular-nums" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-1 font-normal tabular-nums"
+                            aria-label="象限快捷操作"
+                          >
+                            {plan.importance}
+                            <ChevronDown className="ml-0.5 h-3 w-3 opacity-40" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {QUADRANT_OPTIONS.map((q) => {
+                            const point = getQuadrantPoint(q);
+                            const isCurrent =
+                              plan.importance === point.importance &&
+                              plan.urgency === point.urgency;
+                            return (
+                              <DropdownMenuItem
+                                key={q}
+                                onSelect={() => handleChangeQuadrant(plan, q)}
+                              >
+                                <span>
+                                  {QUADRANT_LABELS[q]}
+                                  <span className="ml-1.5 text-xs text-muted-foreground">
+                                    (重要 {point.importance} · 紧急 {point.urgency})
+                                  </span>
+                                </span>
+                                {isCurrent && <Check className="ml-auto h-4 w-4" />}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
                     <td className="px-3 py-2 tabular-nums">{plan.urgency}</td>
                     <td className="px-3 py-2 tabular-nums">{formatDdl(plan.ddl) || "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{formatDdl(plan.created_at)}</td>
+                    {/* ── Status: clickable toggle ───────────── */}
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <span
+                      <button
+                        type="button"
                         className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           STATUS_STYLES[plan.status],
                         )}
+                        aria-label={`切换状态: ${STATUS_LABELS[plan.status]}`}
+                        onClick={() => handleToggleStatus(plan)}
                       >
                         {STATUS_LABELS[plan.status]}
-                      </span>
+                      </button>
                     </td>
+                    {/* ── Actions: more details + delete ──────── */}
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-destructive"
-                        aria-label={`删除 ${plan.title}`}
-                        onClick={() => setDeletingPlan(plan)}
-                      >
-                        删除
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-1"
+                          aria-label={`更多详情: ${plan.title}`}
+                          onClick={() => openEditDialog(plan)}
+                        >
+                          <Ellipsis className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-destructive"
+                          aria-label={`删除 ${plan.title}`}
+                          onClick={() => setDeletingPlan(plan)}
+                        >
+                          删除
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
