@@ -55,5 +55,8 @@ CLAUDE.md
 # ── External repos / checkouts ───────────────────────────────────
 personal-website/
 
+# ── Test coverage ─────────────────────────────────────────────────
+app/coverage/
+
 # ── Misc ─────────────────────────────────────────────────────────
 *.local

@@ -25,6 +25,7 @@ export function PlanInlineEdit({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const displayRef = useRef<HTMLSpanElement>(null);
+  const firstRender = useRef(true);
 
   // Auto-focus input when entering edit mode
   useEffect(() => {
@@ -34,8 +35,14 @@ export function PlanInlineEdit({
     }
   }, [editing]);
 
-  // Return focus to display element after exiting edit mode
+  // Return focus to display element after exiting edit mode.
+  // Skip the first render — on mount, editing is already false and we
+  // must not steal focus from wherever the user (or browser) left it.
   useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
     if (!editing && displayRef.current) {
       displayRef.current.focus();
     }
