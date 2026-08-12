@@ -83,7 +83,11 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
   function handleToggleAdvanced() {
     setShowAdvanced((prev) => {
       if (!prev) {
+        // Expanding: mark that user has seen advanced options
         setHasExpandedAdvanced(true);
+      } else {
+        // Collapsing: reset so parsed values apply again
+        setHasExpandedAdvanced(false);
       }
       return !prev;
     });
@@ -92,14 +96,38 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    // ── Parse quick-capture input from title ─────────────────
-    const parsed = parseQuickCaptureInput(values.title, categories);
+    // ── Edit mode: use raw values, never parse the title ──────
+    let effectiveTitle: string;
+    let effectiveCategoryId: string | null;
+    let effectiveImportance: number;
+    let effectiveUrgency: number;
 
-    // Cleaned title (without category prefix and priority tag)
-    const cleanedTitle = parsed.title;
+    if (isEdit) {
+      // Editing: preserve existing title and field values exactly
+      effectiveTitle = values.title.trim();
+      effectiveCategoryId = values.categoryId;
+      effectiveImportance = values.importance;
+      effectiveUrgency = values.urgency;
+    } else {
+      // New plan: parse quick-capture input from title
+      const parsed = parseQuickCaptureInput(values.title, categories);
+      effectiveTitle = parsed.title.trim();
 
-    // Basic validation on cleaned title
-    if (!cleanedTitle.trim()) {
+      // Merge: parsed values as defaults, form values override when
+      // user has expanded advanced options
+      effectiveCategoryId = hasExpandedAdvanced
+        ? values.categoryId
+        : (parsed.categoryId ?? values.categoryId);
+      effectiveImportance = hasExpandedAdvanced
+        ? values.importance
+        : (parsed.priority?.importance ?? values.importance);
+      effectiveUrgency = hasExpandedAdvanced
+        ? values.urgency
+        : (parsed.priority?.urgency ?? values.urgency);
+    }
+
+    // Basic validation
+    if (!effectiveTitle) {
       setErrors({ title: "标题不能为空" });
       return;
     }
@@ -108,23 +136,12 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // Merge: parsed values as defaults, form values override when user expanded advanced
-      const resolvedCategoryId = hasExpandedAdvanced
-        ? values.categoryId
-        : (parsed.categoryId ?? values.categoryId);
-      const resolvedImportance = hasExpandedAdvanced
-        ? values.importance
-        : (parsed.priority?.importance ?? values.importance);
-      const resolvedUrgency = hasExpandedAdvanced
-        ? values.urgency
-        : (parsed.priority?.urgency ?? values.urgency);
-
       const payload = {
-        title: cleanedTitle.trim(),
+        title: effectiveTitle,
         description: values.description,
-        category_id: resolvedCategoryId,
-        importance: resolvedImportance,
-        urgency: resolvedUrgency,
+        category_id: effectiveCategoryId,
+        importance: effectiveImportance,
+        urgency: effectiveUrgency,
         ddl: values.ddl,
         tag_workflow_id: values.tagWorkflowId,
         // Only reset step to 0 when workflow is newly bound or changed;

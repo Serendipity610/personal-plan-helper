@@ -223,6 +223,41 @@ describe("parseQuickCaptureInput", () => {
       title: "工作计划：写周报",
     });
   });
+
+  // ── Spacing between separators ───────────────────────────
+
+  it("parses priority tag when space separates colon and tag", () => {
+    const result = parseQuickCaptureInput(
+      "工作计划： 【重要紧急】写周报",
+      SAMPLE_CATEGORIES,
+    );
+    expect(result).toEqual({
+      categoryId: "cat-work",
+      priority: { importance: 3, urgency: 3 },
+      title: "写周报",
+    });
+  });
+
+  it("parses priority tag when multiple spaces separate colon and tag", () => {
+    const result = parseQuickCaptureInput(
+      "工作计划：   【重要不紧急】写周报",
+      SAMPLE_CATEGORIES,
+    );
+    expect(result).toEqual({
+      categoryId: "cat-work",
+      priority: { importance: 3, urgency: 1 },
+      title: "写周报",
+    });
+  });
+
+  it("parses priority tag with spaces before it even without category prefix", () => {
+    const result = parseQuickCaptureInput("  【不重要紧急】修bug", SAMPLE_CATEGORIES);
+    expect(result).toEqual({
+      categoryId: null,
+      priority: { importance: 1, urgency: 3 },
+      title: "修bug",
+    });
+  });
 });
 
 describe("PRIORITY_TAGS", () => {

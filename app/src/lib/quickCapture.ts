@@ -66,14 +66,18 @@ export function parseQuickCaptureInput(
   // ── Step 2: extract priority tag ─────────────────────────
   let priority: ParsedQuickInput["priority"] = null;
 
-  if (remaining.startsWith(TAG_OPEN)) {
-    const closeIdx = remaining.indexOf(TAG_CLOSE, TAG_OPEN.length);
+  // Trim after category extraction so whitespace between
+  // colon and tag is handled (e.g. "工作计划： 【重要紧急】…")
+  const trimmedRemaining = remaining.trimStart();
+
+  if (trimmedRemaining.startsWith(TAG_OPEN)) {
+    const closeIdx = trimmedRemaining.indexOf(TAG_CLOSE, TAG_OPEN.length);
     if (closeIdx > TAG_OPEN.length) {
-      const tagContent = remaining.slice(TAG_OPEN.length, closeIdx);
+      const tagContent = trimmedRemaining.slice(TAG_OPEN.length, closeIdx);
       const point = PRIORITY_TAGS[tagContent];
       if (point) {
         priority = { ...point };
-        remaining = remaining.slice(closeIdx + TAG_CLOSE.length);
+        remaining = trimmedRemaining.slice(closeIdx + TAG_CLOSE.length);
       }
     }
   }

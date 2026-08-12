@@ -574,5 +574,158 @@ describe("PlanFormDialog period fields", () => {
         );
       });
     });
+
+    // ── Review fix: parser after expand→collapse still applies ──
+
+    it("applies parsed values after expanding and collapsing advanced options", async () => {
+      const user = userEvent.setup();
+      useAppStore.setState({
+        categories: [
+          makeCategory({ id: "cat-1", name: "工作" }),
+          makeCategory({ id: "cat-2", name: "学习计划" }),
+        ],
+      });
+
+      renderDialog();
+
+      // Type a title with category and priority
+      await user.type(screen.getByLabelText("标题"), "学习计划：【重要紧急】写周报");
+
+      // Expand then collapse without making any changes
+      await user.click(screen.getByRole("button", { name: "更多选项" }));
+      await user.click(screen.getByRole("button", { name: "收起选项" }));
+
+      // Submit — parsed values should still apply
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "写周报",
+            category_id: "cat-2",
+            importance: PRIORITY_TAGS["重要紧急"].importance,
+            urgency: PRIORITY_TAGS["重要紧急"].urgency,
+          }),
+        );
+      });
+    });
+
+    // ── Review fix: space after colon before priority tag ──
+
+    it("parses priority tag when there is a space after the colon", async () => {
+      const user = userEvent.setup();
+      useAppStore.setState({
+        categories: [
+          makeCategory({ id: "cat-1", name: "工作" }),
+          makeCategory({ id: "cat-2", name: "工作计划" }),
+        ],
+      });
+
+      renderDialog();
+
+      await user.type(screen.getByLabelText("标题"), "工作计划： 【重要紧急】写周报");
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "写周报",
+            category_id: "cat-2",
+            importance: PRIORITY_TAGS["重要紧急"].importance,
+            urgency: PRIORITY_TAGS["重要紧急"].urgency,
+          }),
+        );
+      });
+    });
+  });
+
+  // ── Review fix: edit mode must not parse title ──────────
+
+  describe("PlanFormDialog edit mode does not parse title", () => {
+    it("preserves a title containing colon format when editing", async () => {
+      const user = userEvent.setup();
+      const existingPlan = makePlan({
+        id: "plan-existing",
+        title: "工作：完成周报",
+        category_id: null,
+      });
+      mockedApi.updatePlan.mockResolvedValue(
+        makePlan({ id: "plan-existing", title: "工作：完成周报", category_id: null }),
+      );
+
+      renderDialog(existingPlan);
+
+      // Just click save without any changes
+      await user.click(screen.getByRole("button", { name: "保存" }));
+
+      await waitFor(() => {
+        expect(mockedApi.updatePlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: "plan-existing",
+            title: "工作：完成周报", // preserved as-is, not parsed
+          }),
+        );
+      });
+    });
+
+    it("preserves a title containing priority tag format when editing", async () => {
+      const user = userEvent.setup();
+      const existingPlan = makePlan({
+        id: "plan-existing",
+        title: "【重要紧急】写周报",
+        category_id: null,
+        importance: 1,
+        urgency: 1,
+      });
+      mockedApi.updatePlan.mockResolvedValue(
+        makePlan({
+          id: "plan-existing",
+          title: "【重要紧急】写周报",
+          category_id: null,
+          importance: 1,
+          urgency: 1,
+        }),
+      );
+
+      renderDialog(existingPlan);
+
+      await user.click(screen.getByRole("button", { name: "保存" }));
+
+      await waitFor(() => {
+        expect(mockedApi.updatePlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: "plan-existing",
+            title: "【重要紧急】写周报", // preserved as-is
+            importance: 1, // not overwritten by parser
+            urgency: 1,
+          }),
+        );
+      });
+    });
+
+    it("allows editing a plan whose title is exactly a category prefix", async () => {
+      const user = userEvent.setup();
+      const existingPlan = makePlan({
+        id: "plan-existing",
+        title: "工作：",
+        category_id: null,
+      });
+      mockedApi.updatePlan.mockResolvedValue(
+        makePlan({ id: "plan-existing", title: "工作：", category_id: null }),
+      );
+
+      renderDialog(existingPlan);
+
+      await user.click(screen.getByRole("button", { name: "保存" }));
+
+      await waitFor(() => {
+        expect(mockedApi.updatePlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: "plan-existing",
+            title: "工作：",
+          }),
+        );
+      });
+    });
   });
 });
