@@ -6,6 +6,7 @@ import * as api from "@/lib/api";
 import { makePlan, makeCategory, makeTagWorkflow } from "@/test/fixtures";
 import type { Plan } from "@/types";
 import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
+import { PRIORITY_TAGS } from "@/lib/quickCapture";
 
 vi.mock("@/lib/api", () => ({
   createPlan: vi.fn(),
@@ -60,8 +61,10 @@ beforeEach(() => {
 });
 
 describe("PlanFormDialog period fields", () => {
-  it("renders period type select with default '无'", () => {
+  it("renders period type select with default '无'", async () => {
+    const user = userEvent.setup();
     renderDialog();
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     const periodTypeTrigger = screen.getByLabelText("计划周期");
     expect(periodTypeTrigger).toBeInTheDocument();
@@ -70,6 +73,7 @@ describe("PlanFormDialog period fields", () => {
   it("renders period value input after selecting a period type", async () => {
     const user = userEvent.setup();
     renderDialog();
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     await selectOption(user, "计划周期", "月度");
 
@@ -77,8 +81,10 @@ describe("PlanFormDialog period fields", () => {
     expect(periodValueInput).toBeInTheDocument();
   });
 
-  it("defaults period type to 'none' (no period)", () => {
+  it("defaults period type to 'none' (no period)", async () => {
+    const user = userEvent.setup();
     renderDialog();
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     const periodTypeTrigger = screen.getByLabelText("计划周期");
     expect(periodTypeTrigger).toHaveTextContent("无");
@@ -87,6 +93,7 @@ describe("PlanFormDialog period fields", () => {
   it("allows selecting a period type", async () => {
     const user = userEvent.setup();
     renderDialog();
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     await selectOption(user, "计划周期", "月度");
 
@@ -97,6 +104,9 @@ describe("PlanFormDialog period fields", () => {
   it("includes period_type and period_value in create payload", async () => {
     const user = userEvent.setup();
     renderDialog();
+
+    // Expand advanced fields
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     // Fill title
     await user.type(screen.getByLabelText("标题"), "测试周期计划");
@@ -142,8 +152,10 @@ describe("PlanFormDialog period fields", () => {
     });
   });
 
-  it("renders workflow select with default '无'", () => {
+  it("renders workflow select with default '无'", async () => {
+    const user = userEvent.setup();
     renderDialog();
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     const workflowTrigger = screen.getByLabelText("工作流");
     expect(workflowTrigger).toBeInTheDocument();
@@ -153,6 +165,7 @@ describe("PlanFormDialog period fields", () => {
   it("allows selecting a workflow", async () => {
     const user = userEvent.setup();
     renderDialog();
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     await selectOption(user, "工作流", "开发任务流程");
 
@@ -162,6 +175,7 @@ describe("PlanFormDialog period fields", () => {
   it("includes tag_workflow_id and current_step_index in create payload", async () => {
     const user = userEvent.setup();
     renderDialog();
+    await user.click(screen.getByRole("button", { name: "更多选项" }));
 
     await user.type(screen.getByLabelText("标题"), "工作流任务");
     await selectOption(user, "工作流", "开发任务流程");
@@ -307,6 +321,255 @@ describe("PlanFormDialog period fields", () => {
             id: "plan-existing",
             tag_workflow_id: "wf-1",
             current_step_index: 0, // new workflow, start at step 0
+          }),
+        );
+      });
+    });
+  });
+
+  // ── Quick Capture mode ───────────────────────────────────
+
+  describe("PlanFormDialog quick capture (collapsed mode for new plans)", () => {
+    it("shows only title and '更多选项' button for new plans", () => {
+      renderDialog();
+
+      expect(screen.getByLabelText("标题")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "更多选项" })).toBeInTheDocument();
+      // Advanced fields should NOT be visible
+      expect(screen.queryByLabelText("描述")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("分类")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("重要度")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("紧急度")).not.toBeInTheDocument();
+    });
+
+    it("shows all fields when editing an existing plan (no collapsed mode)", () => {
+      const existingPlan = makePlan({ id: "plan-edit", title: "已有计划" });
+      renderDialog(existingPlan);
+
+      // All fields visible in edit mode
+      expect(screen.getByLabelText("标题")).toBeInTheDocument();
+      expect(screen.getByLabelText("描述")).toBeInTheDocument();
+      expect(screen.getByLabelText("分类")).toBeInTheDocument();
+      // "更多选项" button should NOT be visible in edit mode
+      expect(screen.queryByRole("button", { name: "更多选项" })).not.toBeInTheDocument();
+    });
+
+    it("expands advanced fields when '更多选项' is clicked", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole("button", { name: "更多选项" }));
+
+      // Advanced fields should now be visible
+      expect(screen.getByLabelText("描述")).toBeInTheDocument();
+      expect(screen.getByLabelText("分类")).toBeInTheDocument();
+      // "更多选项" button should be replaced
+      expect(screen.queryByRole("button", { name: "更多选项" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "收起选项" })).toBeInTheDocument();
+    });
+
+    it("collapses advanced fields when '收起选项' is clicked", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole("button", { name: "更多选项" }));
+      await user.click(screen.getByRole("button", { name: "收起选项" }));
+
+      // Advanced fields hidden again
+      expect(screen.queryByLabelText("描述")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("分类")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "更多选项" })).toBeInTheDocument();
+    });
+
+    it("creates a plan by typing title and pressing Enter (quick create)", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      const titleInput = screen.getByLabelText("标题");
+      await user.type(titleInput, "快速创建的计划");
+      await user.keyboard("{Enter}");
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "快速创建的计划",
+          }),
+        );
+      });
+    });
+
+    it("does not submit with an empty title", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.keyboard("{Enter}");
+
+      expect(screen.getByText("标题不能为空")).toBeInTheDocument();
+      expect(mockedApi.createPlan).not.toHaveBeenCalled();
+    });
+
+    it("does not submit with whitespace-only title", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      const titleInput = screen.getByLabelText("标题");
+      await user.type(titleInput, "   ");
+      await user.keyboard("{Enter}");
+
+      expect(screen.getByText("标题不能为空")).toBeInTheDocument();
+      expect(mockedApi.createPlan).not.toHaveBeenCalled();
+    });
+
+    it("preserves input on backend failure and allows retry", async () => {
+      const user = userEvent.setup();
+      mockedApi.createPlan.mockRejectedValueOnce(new Error("Network error"));
+      renderDialog();
+
+      await user.type(screen.getByLabelText("标题"), "失败的计划");
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/保存失败/)).toBeInTheDocument();
+      });
+
+      // Input should still be there
+      expect(screen.getByLabelText("标题")).toHaveValue("失败的计划");
+
+      // Retry — succeed this time
+      mockedApi.createPlan.mockResolvedValueOnce(
+        makePlan({ id: "retry-plan", title: "失败的计划" }),
+      );
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("closes the dialog on Escape", async () => {
+      const onOpenChange = vi.fn();
+      render(<PlanFormDialog onOpenChange={onOpenChange} plan={null} />);
+
+      await userEvent.keyboard("{Escape}");
+
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  // ── Parser integration on submit ─────────────────────────
+
+  describe("PlanFormDialog parser integration", () => {
+    it("parses category from title and uses it for creation", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.type(screen.getByLabelText("标题"), "工作：写周报");
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "写周报",
+            category_id: "cat-1",
+          }),
+        );
+      });
+    });
+
+    it("parses priority tag from title and uses it for creation", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.type(screen.getByLabelText("标题"), "【重要紧急】写周报");
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "写周报",
+            importance: PRIORITY_TAGS["重要紧急"].importance,
+            urgency: PRIORITY_TAGS["重要紧急"].urgency,
+          }),
+        );
+      });
+    });
+
+    it("parses both category and priority together", async () => {
+      const user = userEvent.setup();
+      // Add a second category to match
+      useAppStore.setState({
+        categories: [
+          makeCategory({ id: "cat-1", name: "工作" }),
+          makeCategory({ id: "cat-2", name: "学习计划" }),
+        ],
+      });
+
+      renderDialog();
+
+      await user.type(screen.getByLabelText("标题"), "学习计划：【重要不紧急】复习考试");
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "复习考试",
+            category_id: "cat-2",
+            importance: PRIORITY_TAGS["重要不紧急"].importance,
+            urgency: PRIORITY_TAGS["重要不紧急"].urgency,
+          }),
+        );
+      });
+    });
+
+    it("uses form values over parsed values when advanced options are expanded and modified", async () => {
+      const user = userEvent.setup();
+      useAppStore.setState({
+        categories: [
+          makeCategory({ id: "cat-1", name: "工作" }),
+          makeCategory({ id: "cat-2", name: "学习计划" }),
+        ],
+      });
+
+      renderDialog();
+
+      // Type a title that would parse to category "学习计划" and priority 重要紧急
+      await user.type(screen.getByLabelText("标题"), "学习计划：【重要紧急】写周报");
+
+      // Expand advanced options
+      await user.click(screen.getByRole("button", { name: "更多选项" }));
+
+      // Manually override category to "工作"
+      await selectOption(user, "分类", "工作");
+
+      // Submit
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      // Form values should win over parsed values for fields the user explicitly set
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "写周报", // parsed title
+            category_id: "cat-1", // manual override wins
+          }),
+        );
+      });
+    });
+
+    it("preserves title as-is when no parsing patterns match", async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      const originalTitle = "这是一条普通的计划标题，没有特殊格式";
+      await user.type(screen.getByLabelText("标题"), originalTitle);
+      await user.click(screen.getByRole("button", { name: "创建" }));
+
+      await waitFor(() => {
+        expect(mockedApi.createPlan).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: originalTitle,
+            category_id: null,
+            importance: 2,
+            urgency: 2,
           }),
         );
       });

@@ -137,6 +137,8 @@ describe("MatrixPage create flow", () => {
     await user.click(screen.getByRole("button", { name: "新建计划" }));
     const dialog = await screen.findByRole("dialog");
 
+    await user.click(within(dialog).getByRole("button", { name: "更多选项" }));
+
     await user.type(within(dialog).getByLabelText("标题"), "新计划");
     await user.type(within(dialog).getByLabelText("描述"), "这是描述");
 
@@ -169,6 +171,8 @@ describe("MatrixPage create flow", () => {
 
     await user.click(screen.getByRole("button", { name: "新建计划" }));
     const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "更多选项" }));
 
     await user.type(within(dialog).getByLabelText("标题"), "临界计划");
 
@@ -210,6 +214,8 @@ describe("MatrixPage create flow", () => {
 
     await user.click(screen.getByRole("button", { name: "新建计划" }));
     const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "更多选项" }));
 
     await user.type(within(dialog).getByLabelText("标题"), "带分类计划");
     await user.click(within(dialog).getByRole("combobox", { name: "分类" }));
