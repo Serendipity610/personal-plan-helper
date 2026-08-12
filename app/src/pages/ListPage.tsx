@@ -174,18 +174,32 @@ export default function ListPage() {
   }
 
   async function handleToggleStatus(plan: Plan) {
+    // Cancelled plans should not be silently resurrected via toggle
+    if (plan.status === "cancelled") return;
     const nextStatus: PlanStatus =
       plan.status === "active" ? "completed" : "active";
-    await editPlan({ id: plan.id, status: nextStatus });
+    try {
+      await editPlan({ id: plan.id, status: nextStatus });
+    } catch {
+      // store handled toast — suppress unhandled rejection
+    }
   }
 
   async function handleChangeCategory(plan: Plan, categoryId: string | null) {
-    await editPlan({ id: plan.id, category_id: categoryId });
+    try {
+      await editPlan({ id: plan.id, category_id: categoryId });
+    } catch {
+      // store handled toast — suppress unhandled rejection
+    }
   }
 
   async function handleChangeQuadrant(plan: Plan, quadrant: QuadrantType) {
     const point = getQuadrantPoint(quadrant);
-    await editPlan({ id: plan.id, importance: point.importance, urgency: point.urgency });
+    try {
+      await editPlan({ id: plan.id, importance: point.importance, urgency: point.urgency });
+    } catch {
+      // store handled toast — suppress unhandled rejection
+    }
   }
 
   return (
@@ -323,7 +337,7 @@ export default function ListPage() {
                             variant="ghost"
                             size="sm"
                             className="h-auto px-0 font-normal"
-                            aria-label="更换分类"
+                            aria-label={`更换分类: ${plan.title}`}
                           >
                             {category ? (
                               <span
@@ -381,7 +395,7 @@ export default function ListPage() {
                             variant="ghost"
                             size="sm"
                             className="h-auto px-1 font-normal tabular-nums"
-                            aria-label="象限快捷操作"
+                            aria-label={`象限快捷操作: ${plan.title}`}
                           >
                             {plan.importance}
                             <ChevronDown className="ml-0.5 h-3 w-3 opacity-40" />

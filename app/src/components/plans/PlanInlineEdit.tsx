@@ -24,12 +24,20 @@ export function PlanInlineEdit({
   const [error, setError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const displayRef = useRef<HTMLSpanElement>(null);
 
   // Auto-focus input when entering edit mode
   useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
+    }
+  }, [editing]);
+
+  // Return focus to display element after exiting edit mode
+  useEffect(() => {
+    if (!editing && displayRef.current) {
+      displayRef.current.focus();
     }
   }, [editing]);
 
@@ -54,6 +62,11 @@ export function PlanInlineEdit({
   }, [value, exitEdit]);
 
   const doSave = useCallback(async () => {
+    // Guard against re-entrancy: when saving=true the input is disabled,
+    // which triggers blur in real browsers — handleBlur would call doSave
+    // again without this check.
+    if (saving) return;
+
     const trimmed = draft.trim();
     if (!trimmed) {
       setError("标题不能为空");
@@ -76,7 +89,7 @@ export function PlanInlineEdit({
     } finally {
       setSaving(false);
     }
-  }, [draft, value, onSave, exitEdit]);
+  }, [saving, draft, value, onSave, exitEdit]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
@@ -106,10 +119,11 @@ export function PlanInlineEdit({
   if (!editing) {
     return (
       <span
+        ref={displayRef}
         role="button"
         tabIndex={disabled ? -1 : 0}
         className={cn(
-          "cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "block max-w-64 truncate cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           disabled && "cursor-default hover:bg-transparent",
           className,
         )}
