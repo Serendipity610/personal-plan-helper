@@ -44,6 +44,11 @@ pub fn run() {
             commands::workflows::list_tag_workflows,
             commands::workflows::update_tag_workflow,
             commands::workflows::delete_tag_workflow,
+            // Aggregates (dashboard)
+            commands::aggregates::get_dashboard_stats,
+            commands::aggregates::get_completion_trend,
+            commands::aggregates::get_urgency_distribution,
+            commands::aggregates::get_category_distribution,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

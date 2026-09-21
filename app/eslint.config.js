@@ -5,7 +5,7 @@ import prettierConfig from "eslint-config-prettier";
 
 export default [
   {
-    ignores: ["dist/", "src-tauri/"],
+    ignores: ["dist/", "src-tauri/", "coverage/"],
   },
   {
     files: ["src/**/*.{ts,tsx}"],

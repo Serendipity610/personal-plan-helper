@@ -9,6 +9,8 @@ export interface Category {
   color: string;
   icon: string;
   sort_order: number;
+  /** 预置分类（工作计划等）：不可删除但可编辑 */
+  is_default: boolean;
   created_at: string;
 }
 
@@ -38,6 +40,7 @@ export interface Plan {
   period_type: "daily" | "monthly" | "quarterly" | "yearly" | null;
   period_value: string | null;
   status: PlanStatus;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -125,10 +128,42 @@ export interface UpdateTagWorkflowRequest {
 /** 艾森豪威尔矩阵象限 */
 export type Quadrant = "q1" | "q2" | "q3" | "q4";
 
-/** 根据 importance/urgency 计算所在象限 */
-export function getQuadrant(importance: number, urgency: number): Quadrant {
-  if (importance >= 2 && urgency >= 2) return "q1"; // 重要且紧急
-  if (importance >= 2 && urgency < 2) return "q2"; // 重要不紧急
-  if (importance < 2 && urgency >= 2) return "q3"; // 不重要紧急
-  return "q4"; // 不重要不紧急
+/** 全局筛选的时间段 */
+export type TimeRange = "all" | "today" | "week" | "month" | "quarter" | "year";
+
+/** 列表视图的可排序列 */
+export type PlanSortKey = "importance" | "urgency" | "ddl" | "created_at";
+
+/** 排序方向 */
+export type SortDirection = "asc" | "desc";
+
+// ============================================================
+// 看板数据类型 — 与 Rust aggregates.rs 保持同步
+// ============================================================
+
+/** 看板统计卡片数据 */
+export interface DashboardStats {
+  total_plans: number;
+  completed_plans: number;
+  completion_rate: number;
+  today_pending: number;
+  overdue_count: number;
+  week_change: number;
 }
+
+/** 每日完成趋势数据点 */
+export interface CompletionTrendPoint {
+  date: string;
+  count: number;
+}
+
+/** 分布数据项（紧急度分布、分类分布共用） */
+export interface DistributionItem {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
+/** 看板时间段 */
+export type DashboardPeriod = "week" | "month" | "quarter" | "year";

@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -12,11 +13,11 @@ export default defineConfig({
   // Prevent vite from obscuring rust errors
   clearScreen: false,
   server: {
+    // Bind to IPv4 to match Tauri's devUrl
+    host: "127.0.0.1",
     // Tauri expects a fixed port; fail if that port is not available
     strictPort: true,
-    // Bind to IPv4 explicitly; Windows resolves "localhost" to IPv6 ::1
-    host: "127.0.0.1",
-    // Exclude Rust target dir from Vite's file watcher to avoid EBUSY
+    // Exclude Rust target dir from Vite's file watcher to prevent EBUSY
     watch: {
       ignored: ["**/src-tauri/**"],
     },
@@ -30,5 +31,22 @@ export default defineConfig({
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     // Produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_DEBUG,
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    css: false,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/test/**",
+        "src/components/ui/**",
+        "src/assets/**",
+        "src/main.tsx",
+        "src/vite-env.d.ts",
+      ],
+    },
   },
 });

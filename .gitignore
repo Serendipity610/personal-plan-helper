@@ -39,6 +39,21 @@ logs/
 npm-debug.log*
 pnpm-debug.log*
 
+# ── pnpm store ───────────────────────────────────────────────────
+.pnpm-store/
+
+# ── Dev output / temp files ───────────────────────────────────────
+tauri-dev-*.txt
+vite-qa-*.txt
+%F%
+
+# ── Local analysis & QA artifacts ────────────────────────────────
+.analysis/
+.qa-*/
+gui-test-screenshots/
+review.md
+github-personal-workbench-research.html
+
 # ── Platform internals (excluded from version control) ───────────
 .agent_context/
 .claude/
@@ -47,6 +62,9 @@ CLAUDE.md
 
 # ── External repos / checkouts ───────────────────────────────────
 personal-website/
+
+# ── Test coverage ─────────────────────────────────────────────────
+app/coverage/
 
 # ── Misc ─────────────────────────────────────────────────────────
 *.local

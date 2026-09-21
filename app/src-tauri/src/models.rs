@@ -9,6 +9,8 @@ pub struct Category {
     pub color: String,
     pub icon: String,
     pub sort_order: i32,
+    /// 预置分类（工作计划等）：不可删除但可编辑
+    pub is_default: bool,
     pub created_at: String,
 }
 
@@ -29,8 +31,8 @@ pub struct Plan {
     pub description: String,
     pub category_id: Option<String>,
     pub parent_id: Option<String>,
-    pub importance: i32,
-    pub urgency: i32,
+    pub importance: f64,
+    pub urgency: f64,
     pub ddl: Option<String>,
     pub tag_workflow_id: Option<String>,
     pub current_step_index: i32,
@@ -39,10 +41,12 @@ pub struct Plan {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+    pub completed_at: Option<String>,
 }
 
 /// 操作日志
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct PlanLog {
     pub id: String,
     pub plan_id: String,
@@ -61,9 +65,9 @@ pub struct CreatePlanRequest {
     pub category_id: Option<String>,
     pub parent_id: Option<String>,
     #[serde(default)]
-    pub importance: i32,
+    pub importance: f64,
     #[serde(default)]
-    pub urgency: i32,
+    pub urgency: f64,
     pub ddl: Option<String>,
     pub tag_workflow_id: Option<String>,
     #[serde(default)]
@@ -90,8 +94,8 @@ pub struct UpdatePlanRequest {
     pub description: Option<String>,
     pub category_id: Option<Option<String>>,
     pub parent_id: Option<Option<String>>,
-    pub importance: Option<i32>,
-    pub urgency: Option<i32>,
+    pub importance: Option<f64>,
+    pub urgency: Option<f64>,
     pub ddl: Option<Option<String>>,
     pub tag_workflow_id: Option<Option<String>>,
     pub current_step_index: Option<i32>,
@@ -232,6 +236,23 @@ mod tests {
         let ddl = req.ddl.unwrap();
         assert!(ddl.is_some());
         assert_eq!(ddl.unwrap(), "2026-12-31T00:00:00Z");
+    }
+
+    #[test]
+    fn test_create_plan_request_accepts_half_step_importance() {
+        // 滑块步进 0.5，2.5 恰为象限阈值临界值，必须能被后端解析（RED: 当前 i32 解析失败）
+        let json = r#"{"title":"临界任务","importance":2.5,"urgency":2.5}"#;
+        let req: CreatePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.importance, 2.5);
+        assert_eq!(req.urgency, 2.5);
+    }
+
+    #[test]
+    fn test_update_plan_request_accepts_half_step_importance() {
+        let json = r#"{"id":"plan-1","importance":2.5,"urgency":1.5}"#;
+        let req: UpdatePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.importance, Some(2.5));
+        assert_eq!(req.urgency, Some(1.5));
     }
 
     #[test]
