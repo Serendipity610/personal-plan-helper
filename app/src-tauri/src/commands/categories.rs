@@ -221,7 +221,10 @@ mod tests {
     fn test_create_category_is_not_default() {
         let db = make_db();
         let created = create_category_inner(&db, create_request("自定义分类")).unwrap();
-        assert!(!created.is_default, "user-created categories must never be default");
+        assert!(
+            !created.is_default,
+            "user-created categories must never be default"
+        );
     }
 
     #[test]
@@ -241,7 +244,9 @@ mod tests {
     #[test]
     fn test_delete_custom_category_detaches_referenced_plans() {
         let db = make_db();
-        let cat_id = create_category_inner(&db, create_request("被引用分类")).unwrap().id;
+        let cat_id = create_category_inner(&db, create_request("被引用分类"))
+            .unwrap()
+            .id;
 
         // 真实数据场景：一条计划仍引用该分类
         {
@@ -268,9 +273,11 @@ mod tests {
         assert_eq!(remaining, 0, "category must be deleted");
 
         let detached: Option<String> = conn
-            .query_row("SELECT category_id FROM plans WHERE id = 'p-ref'", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT category_id FROM plans WHERE id = 'p-ref'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert!(
             detached.is_none(),
@@ -292,7 +299,10 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(updated.is_default, "editing a default category must keep the flag");
+        assert!(
+            updated.is_default,
+            "editing a default category must keep the flag"
+        );
         assert_eq!(updated.name, "工作计划改");
     }
 

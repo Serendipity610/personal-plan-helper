@@ -41,6 +41,7 @@ pub struct Plan {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+    pub completed_at: Option<String>,
 }
 
 /// 操作日志

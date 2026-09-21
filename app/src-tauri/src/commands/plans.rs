@@ -6,6 +6,10 @@ use tauri::State;
 /// Create a new plan
 #[tauri::command]
 pub fn create_plan(db: State<'_, Database>, request: CreatePlanRequest) -> Result<Plan, String> {
+    create_plan_inner(db.inner(), request)
+}
+
+pub(crate) fn create_plan_inner(db: &Database, request: CreatePlanRequest) -> Result<Plan, String> {
     validate_score(request.importance, "importance")?;
     validate_score(request.urgency, "urgency")?;
 
@@ -14,8 +18,8 @@ pub fn create_plan(db: State<'_, Database>, request: CreatePlanRequest) -> Resul
     let now = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO plans (id, title, description, category_id, parent_id, importance, urgency, ddl, tag_workflow_id, current_step_index, period_type, period_value, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)",
+        "INSERT INTO plans (id, title, description, category_id, parent_id, importance, urgency, ddl, tag_workflow_id, current_step_index, period_type, period_value, status, created_at, updated_at, completed_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, NULL)",
         rusqlite::params![
             id,
             request.title,
@@ -52,8 +56,19 @@ pub fn get_plan(db: State<'_, Database>, id: String) -> Result<Plan, String> {
 ///   - outer Some(Some)  → set to value
 #[tauri::command]
 pub fn update_plan(db: State<'_, Database>, request: UpdatePlanRequest) -> Result<Plan, String> {
+    update_plan_inner(db.inner(), request)
+}
+
+pub(crate) fn update_plan_inner(db: &Database, request: UpdatePlanRequest) -> Result<Plan, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
+    let old_status: String = conn
+        .query_row(
+            "SELECT status FROM plans WHERE id = ?1",
+            rusqlite::params![request.id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     let mut sets: Vec<String> = Vec::new();
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();
@@ -81,9 +96,18 @@ pub fn update_plan(db: State<'_, Database>, request: UpdatePlanRequest) -> Resul
         sets.push(format!("current_step_index = ?{}", sets.len() + 1));
         params.push(Box::new(v));
     }
-    if let Some(v) = request.status {
+    if let Some(ref v) = request.status {
         sets.push(format!("status = ?{}", sets.len() + 1));
-        params.push(Box::new(v));
+        params.push(Box::new(v.clone()));
+        if old_status != *v {
+            if v == "completed" {
+                sets.push(format!("completed_at = ?{}", sets.len() + 1));
+                params.push(Box::new(now.clone()));
+            } else if old_status == "completed" {
+                sets.push(format!("completed_at = ?{}", sets.len() + 1));
+                params.push(Box::new(None::<String>));
+            }
+        }
     }
 
     // Nullable fields — tri-state: absent / null (clear) / value (set)
@@ -149,7 +173,7 @@ pub fn list_plans(
 
     let base_sql = "SELECT id, title, description, category_id, parent_id, \
                     importance, urgency, ddl, tag_workflow_id, current_step_index, \
-                    period_type, period_value, status, created_at, updated_at \
+                    period_type, period_value, status, created_at, updated_at, completed_at \
                     FROM plans WHERE 1=1";
     let mut clauses = Vec::new();
     let mut params: Vec<String> = Vec::new();
@@ -212,7 +236,7 @@ fn apply_nullable(
 
 fn get_plan_internal(conn: &rusqlite::Connection, id: &str) -> Result<Plan, String> {
     conn.query_row(
-        "SELECT id, title, description, category_id, parent_id, importance, urgency, ddl, tag_workflow_id, current_step_index, period_type, period_value, status, created_at, updated_at FROM plans WHERE id = ?1",
+        "SELECT id, title, description, category_id, parent_id, importance, urgency, ddl, tag_workflow_id, current_step_index, period_type, period_value, status, created_at, updated_at, completed_at FROM plans WHERE id = ?1",
         rusqlite::params![id],
         row_to_plan,
     )
@@ -236,6 +260,7 @@ fn row_to_plan(row: &rusqlite::Row) -> rusqlite::Result<Plan> {
         status: row.get(12)?,
         created_at: row.get(13)?,
         updated_at: row.get(14)?,
+        completed_at: row.get(15)?,
     })
 }
 
@@ -266,7 +291,7 @@ mod tests {
     fn test_apply_nullable_set() {
         let mut sets = Vec::new();
         let mut params: Vec<Box<dyn ToSql>> = Vec::new();
-        // Some(Some(v)) = set value
+        // outer Some(Some(v)) = set value
         apply_nullable(
             &mut sets,
             &mut params,
@@ -275,5 +300,101 @@ mod tests {
         );
         assert_eq!(sets.len(), 1);
         assert!(sets[0].contains("ddl"));
+    }
+
+    fn make_db() -> Database {
+        let db = Database {
+            conn: std::sync::Mutex::new(rusqlite::Connection::open_in_memory().unwrap()),
+        };
+        db.conn
+            .lock()
+            .unwrap()
+            .pragma_update(None, "foreign_keys", "ON")
+            .unwrap();
+        db.run_migrations().unwrap();
+        db
+    }
+
+    fn create_request() -> CreatePlanRequest {
+        CreatePlanRequest {
+            title: "计划".to_string(),
+            description: String::new(),
+            category_id: None,
+            parent_id: None,
+            importance: 1.0,
+            urgency: 1.0,
+            ddl: None,
+            tag_workflow_id: None,
+            current_step_index: 0,
+            period_type: None,
+            period_value: None,
+            status: "active".to_string(),
+        }
+    }
+
+    #[test]
+    fn completed_at_tracks_status_transitions_only() {
+        let db = make_db();
+        let plan = create_plan_inner(&db, create_request()).unwrap();
+        let completed = update_plan_inner(
+            &db,
+            UpdatePlanRequest {
+                id: plan.id.clone(),
+                title: None,
+                description: None,
+                category_id: None,
+                parent_id: None,
+                importance: None,
+                urgency: None,
+                ddl: None,
+                tag_workflow_id: None,
+                current_step_index: None,
+                period_type: None,
+                period_value: None,
+                status: Some("completed".to_string()),
+            },
+        )
+        .unwrap();
+        assert!(completed.completed_at.is_some());
+        let titled = update_plan_inner(
+            &db,
+            UpdatePlanRequest {
+                id: plan.id.clone(),
+                title: Some("新标题".to_string()),
+                description: None,
+                category_id: None,
+                parent_id: None,
+                importance: None,
+                urgency: None,
+                ddl: None,
+                tag_workflow_id: None,
+                current_step_index: None,
+                period_type: None,
+                period_value: None,
+                status: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(titled.completed_at, completed.completed_at);
+        let active = update_plan_inner(
+            &db,
+            UpdatePlanRequest {
+                id: plan.id,
+                title: None,
+                description: None,
+                category_id: None,
+                parent_id: None,
+                importance: None,
+                urgency: None,
+                ddl: None,
+                tag_workflow_id: None,
+                current_step_index: None,
+                period_type: None,
+                period_value: None,
+                status: Some("active".to_string()),
+            },
+        )
+        .unwrap();
+        assert!(active.completed_at.is_none());
     }
 }

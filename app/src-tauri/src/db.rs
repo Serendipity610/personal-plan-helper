@@ -130,6 +130,19 @@ impl Database {
             conn.pragma_update(None, "user_version", 3)?;
         }
 
+        // Migration 3 → 4: preserve completion time and add common query indexes.
+        if current_version < 4 {
+            conn.execute_batch(
+                "ALTER TABLE plans ADD COLUMN completed_at TEXT;
+                 CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
+                 CREATE INDEX IF NOT EXISTS idx_plans_category_id ON plans(category_id);
+                 CREATE INDEX IF NOT EXISTS idx_plans_ddl ON plans(ddl);
+                 CREATE INDEX IF NOT EXISTS idx_plans_workflow_step ON plans(tag_workflow_id, current_step_index);
+                 CREATE INDEX IF NOT EXISTS idx_plans_completed_at ON plans(completed_at);",
+            )?;
+            conn.pragma_update(None, "user_version", 4)?;
+        }
+
         Ok(())
     }
 }
@@ -163,8 +176,18 @@ mod tests {
             .unwrap()
             .collect::<Result<_, _>>()
             .unwrap();
-        let importance_type = info.iter().find(|(name, _)| name == "importance").unwrap().1.clone();
-        let urgency_type = info.iter().find(|(name, _)| name == "urgency").unwrap().1.clone();
+        let importance_type = info
+            .iter()
+            .find(|(name, _)| name == "importance")
+            .unwrap()
+            .1
+            .clone();
+        let urgency_type = info
+            .iter()
+            .find(|(name, _)| name == "urgency")
+            .unwrap()
+            .1
+            .clone();
         assert_eq!(importance_type, "REAL");
         assert_eq!(urgency_type, "REAL");
     }
@@ -187,9 +210,11 @@ mod tests {
         db.run_migrations().unwrap();
         let conn = db.conn.lock().unwrap();
         let (importance, urgency): (f64, f64) = conn
-            .query_row("SELECT importance, urgency FROM plans WHERE id = 'p-legacy'", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
+            .query_row(
+                "SELECT importance, urgency FROM plans WHERE id = 'p-legacy'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
             .unwrap();
         assert_eq!(importance, 3.0);
         assert_eq!(urgency, 2.0);
@@ -207,10 +232,15 @@ mod tests {
         .unwrap();
 
         let is_default: bool = conn
-            .query_row("SELECT is_default FROM categories WHERE id = 'c-test'", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT is_default FROM categories WHERE id = 'c-test'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
-        assert!(!is_default, "rows created without the flag must default to non-default");
+        assert!(
+            !is_default,
+            "rows created without the flag must default to non-default"
+        );
     }
 }

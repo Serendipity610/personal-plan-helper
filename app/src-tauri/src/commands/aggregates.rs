@@ -1,4 +1,5 @@
 use crate::db::Database;
+use chrono::{Duration, NaiveDate};
 use serde::Serialize;
 use tauri::State;
 
@@ -39,10 +40,19 @@ pub struct DistributionItem {
 
 /// 获取看板统计卡片数据
 #[tauri::command]
-pub fn get_dashboard_stats(db: State<'_, Database>) -> Result<DashboardStats, String> {
+pub fn get_dashboard_stats(
+    db: State<'_, Database>,
+    today: String,
+) -> Result<DashboardStats, String> {
+    parse_today(&today)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    get_dashboard_stats_inner(&conn, &today)
+}
 
+fn get_dashboard_stats_inner(
+    conn: &rusqlite::Connection,
+    today: &str,
+) -> Result<DashboardStats, String> {
     // total: active + completed (excludes cancelled)
     let total_plans: i64 = conn
         .query_row(
@@ -108,40 +118,59 @@ pub fn get_dashboard_stats(db: State<'_, Database>) -> Result<DashboardStats, St
     })
 }
 
-/// 获取近 N 天每日完成趋势（按 updated_at 近似统计完成时间）
+/// 获取近 N 天每日完成趋势（按 completed_at 统计）
 #[tauri::command]
 pub fn get_completion_trend(
     db: State<'_, Database>,
     days: i32,
+    today: String,
 ) -> Result<Vec<CompletionTrendPoint>, String> {
+    let today = parse_today(&today)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    get_completion_trend_inner(&conn, days, today)
+}
 
-    let mut trend = Vec::with_capacity(days as usize);
-    for i in (0..days).rev() {
-        let date_label = conn
-            .query_row(
-                "SELECT date(?1, ?2)",
-                rusqlite::params![today, format!("-{} days", i)],
-                |r| r.get::<_, String>(0),
-            )
-            .map_err(|e| e.to_string())?;
+fn parse_today(today: &str) -> Result<NaiveDate, String> {
+    NaiveDate::parse_from_str(today, "%Y-%m-%d")
+        .map_err(|e| format!("today 必须是 YYYY-MM-DD 格式: {e}"))
+}
 
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM plans WHERE status = 'completed' AND date(updated_at) = date(?1, ?2)",
-                rusqlite::params![today, format!("-{} days", i)],
-                |r| r.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-
-        trend.push(CompletionTrendPoint {
-            date: date_label,
-            count,
-        });
+fn get_completion_trend_inner(
+    conn: &rusqlite::Connection,
+    days: i32,
+    today: NaiveDate,
+) -> Result<Vec<CompletionTrendPoint>, String> {
+    if days <= 0 {
+        return Ok(Vec::new());
     }
+    let start = today - Duration::days(i64::from(days - 1));
+    let mut stmt = conn
+        .prepare(
+            "SELECT substr(completed_at, 1, 10), COUNT(*) FROM plans
+             WHERE status = 'completed' AND completed_at IS NOT NULL
+               AND substr(completed_at, 1, 10) BETWEEN ?1 AND ?2
+             GROUP BY substr(completed_at, 1, 10)",
+        )
+        .map_err(|e| e.to_string())?;
+    let counts: std::collections::HashMap<String, i64> = stmt
+        .query_map(
+            rusqlite::params![start.to_string(), today.to_string()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
 
-    Ok(trend)
+    Ok((0..days)
+        .map(|offset| {
+            let date = start + Duration::days(i64::from(offset));
+            let date = date.to_string();
+            CompletionTrendPoint {
+                count: counts.get(&date).copied().unwrap_or(0),
+                date,
+            }
+        })
+        .collect())
 }
 
 /// 获取紧急度分布（按整数层级 0-4 分组计数，排除已取消计划，可按时间范围过滤）
@@ -236,7 +265,9 @@ mod tests {
 
     fn seed_test_data(db: &Database) {
         let conn = db.conn.lock().unwrap();
-        let today = chrono::Utc::now().format("%Y-%m-%dT00:00:00+00:00").to_string();
+        let today = chrono::Utc::now()
+            .format("%Y-%m-%dT00:00:00+00:00")
+            .to_string();
 
         // Insert categories
         conn.execute(
@@ -272,7 +303,7 @@ mod tests {
             .format("%Y-%m-%dT00:00:00+00:00")
             .to_string();
         conn.execute(
-            "INSERT INTO plans (id, title, description, category_id, importance, urgency, ddl, status, created_at, updated_at) VALUES ('p-3', '已完成任务', '', 'cat-2', 1, 0, NULL, 'completed', ?1, ?1)",
+            "INSERT INTO plans (id, title, description, category_id, importance, urgency, ddl, status, created_at, updated_at, completed_at) VALUES ('p-3', '已完成任务', '', 'cat-2', 1, 0, NULL, 'completed', ?1, ?1, ?1)",
             rusqlite::params![three_days_ago],
         ).unwrap();
 
@@ -300,6 +331,14 @@ mod tests {
     }
 
     // ── get_dashboard_stats ─────────────────────────────────
+
+    #[test]
+    fn test_today_rejects_invalid_format_for_dashboard_and_trend() {
+        let dashboard_error = parse_today("2026/08/07").unwrap_err();
+        let trend_error = parse_today("2026/08/07").unwrap_err();
+        assert!(dashboard_error.contains("YYYY-MM-DD"));
+        assert!(trend_error.contains("YYYY-MM-DD"));
+    }
 
     #[test]
     fn test_dashboard_stats_counts() {
@@ -436,37 +475,35 @@ mod tests {
         seed_test_data(&db);
 
         let conn = db.conn.lock().unwrap();
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let today = chrono::Utc::now().date_naive();
+        let trend = get_completion_trend_inner(&conn, 7, today).unwrap();
 
-        // Only p-3 is completed (updated_at = 3 days ago)
-        let day_offset = 3;
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM plans WHERE status = 'completed' AND date(updated_at) = date(?1, ?2)",
-                rusqlite::params![today, format!("-{} days", day_offset)],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(count, 1, "p-3 was completed 3 days ago");
+        assert_eq!(trend.len(), 7);
+        assert_eq!(
+            trend.first().unwrap().date,
+            (today - Duration::days(6)).to_string()
+        );
+        assert_eq!(trend.last().unwrap().date, today.to_string());
+        assert_eq!(trend[3].count, 1, "p-3 was completed 3 days ago");
+        assert!(trend
+            .iter()
+            .enumerate()
+            .all(|(index, point)| { index == 3 || point.count == 0 }));
     }
 
     #[test]
     fn test_completion_trend_empty_when_no_completions() {
         let db = make_db();
-        // no data
         let conn = db.conn.lock().unwrap();
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let trend = get_completion_trend_inner(
+            &conn,
+            7,
+            chrono::NaiveDate::from_ymd_opt(2026, 8, 7).unwrap(),
+        )
+        .unwrap();
 
-        for i in 0..7 {
-            let count: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM plans WHERE status = 'completed' AND date(updated_at) = date(?1, ?2)",
-                    rusqlite::params![today, format!("-{} days", i)],
-                    |r| r.get(0),
-                )
-                .unwrap();
-            assert_eq!(count, 0);
-        }
+        assert_eq!(trend.len(), 7);
+        assert!(trend.iter().all(|point| point.count == 0));
     }
 
     // ── get_urgency_distribution ─────────────────────────────
@@ -545,7 +582,10 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(cat_study, 1, "only p-3 should count for cat-2 after excluding cancelled p-5");
+        assert_eq!(
+            cat_study, 1,
+            "only p-3 should count for cat-2 after excluding cancelled p-5"
+        );
     }
 
     // ── get_category_distribution ────────────────────────────
@@ -572,9 +612,15 @@ mod tests {
             .unwrap();
 
         assert_eq!(dist.len(), 3);
-        assert!(dist.iter().any(|(name, count)| name == "工作" && *count == 2));
-        assert!(dist.iter().any(|(name, count)| name == "学习" && *count == 1));
-        assert!(dist.iter().any(|(name, count)| name == "未分类" && *count == 1));
+        assert!(dist
+            .iter()
+            .any(|(name, count)| name == "工作" && *count == 2));
+        assert!(dist
+            .iter()
+            .any(|(name, count)| name == "学习" && *count == 1));
+        assert!(dist
+            .iter()
+            .any(|(name, count)| name == "未分类" && *count == 1));
     }
 
     #[test]
