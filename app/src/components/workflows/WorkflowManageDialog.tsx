@@ -136,9 +136,7 @@ export function WorkflowManageDialog({ onOpenChange }: WorkflowManageDialogProps
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>工作流管理</DialogTitle>
-          <DialogDescription>
-            管理标签工作流模板：可自定义名称与步骤顺序。
-          </DialogDescription>
+          <DialogDescription>管理标签工作流模板：可自定义名称与步骤顺序。</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -282,7 +280,8 @@ export function WorkflowManageDialog({ onOpenChange }: WorkflowManageDialogProps
           <AlertDialogHeader>
             <AlertDialogTitle>删除工作流</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要删除工作流「{deletingWorkflow?.name}」吗？关联的计划将解除工作流绑定，此操作不可撤销。
+              确定要删除工作流「{deletingWorkflow?.name}
+              」吗？关联的计划将解除工作流绑定，此操作不可撤销。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

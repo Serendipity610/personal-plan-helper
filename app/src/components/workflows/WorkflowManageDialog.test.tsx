@@ -24,8 +24,16 @@ beforeEach(() => {
     plans: [],
     categories: [],
     tagWorkflows: [
-      makeTagWorkflow({ id: "wf-1", name: "开发流程", steps: JSON.stringify(["需求分析", "开发", "测试"]) }),
-      makeTagWorkflow({ id: "wf-2", name: "学习流程", steps: JSON.stringify(["预习", "学习", "复习"]) }),
+      makeTagWorkflow({
+        id: "wf-1",
+        name: "开发流程",
+        steps: JSON.stringify(["需求分析", "开发", "测试"]),
+      }),
+      makeTagWorkflow({
+        id: "wf-2",
+        name: "学习流程",
+        steps: JSON.stringify(["预习", "学习", "复习"]),
+      }),
     ],
     selectedCategoryId: null,
     selectedStatus: "all",
@@ -159,7 +167,11 @@ describe("WorkflowManageDialog", () => {
   it("submits edits to an existing workflow", async () => {
     const user = userEvent.setup();
     mockedApi.updateTagWorkflow.mockResolvedValueOnce(
-      makeTagWorkflow({ id: "wf-1", name: "开发流程v2", steps: JSON.stringify(["需求分析", "开发", "测试"]) }),
+      makeTagWorkflow({
+        id: "wf-1",
+        name: "开发流程v2",
+        steps: JSON.stringify(["需求分析", "开发", "测试"]),
+      }),
     );
     renderDialog();
 
@@ -247,7 +259,11 @@ describe("WorkflowManageDialog", () => {
   it("submits reordered steps when saving after reorder", async () => {
     const user = userEvent.setup();
     mockedApi.updateTagWorkflow.mockResolvedValueOnce(
-      makeTagWorkflow({ id: "wf-1", name: "开发流程", steps: JSON.stringify(["开发", "需求分析", "测试"]) }),
+      makeTagWorkflow({
+        id: "wf-1",
+        name: "开发流程",
+        steps: JSON.stringify(["开发", "需求分析", "测试"]),
+      }),
     );
     renderDialog();
     await user.click(screen.getAllByLabelText(/编辑工作流/)[0]);

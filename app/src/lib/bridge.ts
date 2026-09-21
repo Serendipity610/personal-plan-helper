@@ -41,10 +41,7 @@ function isBridgeAvailable(): boolean {
  * @param args  可选，命令参数对象
  * @returns     命令执行结果
  */
-export async function safeInvoke<T>(
-  cmd: string,
-  args?: Record<string, unknown>,
-): Promise<T> {
+export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (!isBridgeAvailable()) {
     throw new BridgeUnavailableError();
   }

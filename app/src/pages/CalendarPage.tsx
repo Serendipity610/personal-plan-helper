@@ -118,13 +118,7 @@ function getDaysInMonthGrid(date: Date): Date[] {
 
 // ── Sub-components ────────────────────────────────────────────
 
-function PeriodTabs({
-  value,
-  onChange,
-}: {
-  value: ViewMode;
-  onChange: (v: ViewMode) => void;
-}) {
+function PeriodTabs({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
   return (
     <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist">
       {VIEW_MODES.map((mode) => (
@@ -164,18 +158,33 @@ function PeriodNav({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="icon" className="h-8 w-8" onClick={onPrev} aria-label={prevLabel}>
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-8 w-8"
+        onClick={onPrev}
+        aria-label={prevLabel}
+      >
         <ChevronLeft className="h-4 w-4" />
       </Button>
       <button
         type="button"
         data-testid="period-title"
-        className={cn("min-w-[120px] text-center text-sm font-semibold", onLabelClick && "cursor-pointer hover:text-primary")}
+        className={cn(
+          "min-w-[120px] text-center text-sm font-semibold",
+          onLabelClick && "cursor-pointer hover:text-primary",
+        )}
         onClick={onLabelClick}
       >
         {label}
       </button>
-      <Button variant="outline" size="icon" className="h-8 w-8" onClick={onNext} aria-label={nextLabel}>
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-8 w-8"
+        onClick={onNext}
+        aria-label={nextLabel}
+      >
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
@@ -286,10 +295,7 @@ function MonthView({
                   className="mt-0.5 flex flex-wrap justify-center gap-0.5"
                 >
                   {dayPlans.slice(0, 3).map((plan) => (
-                    <span
-                      key={plan.id}
-                      className="block h-1 w-1 rounded-full bg-primary"
-                    />
+                    <span key={plan.id} className="block h-1 w-1 rounded-full bg-primary" />
                   ))}
                   {dayPlans.length > 3 && (
                     <span className="text-[0.6rem] leading-none text-muted-foreground">
@@ -524,7 +530,13 @@ export default function CalendarPage() {
           <CalendarDays className="mb-4 h-12 w-12 opacity-40" />
           <p className="text-lg font-medium">暂无计划</p>
           <p className="mt-1 text-sm">创建计划后即可在此查看日历视图</p>
-          <Button className="mt-4" onClick={() => { setEditingPlan(null); setFormOpen(true); }}>
+          <Button
+            className="mt-4"
+            onClick={() => {
+              setEditingPlan(null);
+              setFormOpen(true);
+            }}
+          >
             <Plus className="mr-1 h-4 w-4" />
             创建计划
           </Button>
@@ -539,7 +551,13 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">日历视图</h2>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => { setEditingPlan(null); setFormOpen(true); }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingPlan(null);
+              setFormOpen(true);
+            }}
+          >
             <Plus className="mr-1 h-4 w-4" />
             新建计划
           </Button>

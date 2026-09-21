@@ -3,18 +3,12 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanInlineEdit } from "@/components/plans/PlanInlineEdit";
 
-function renderEdit(
-  props: Partial<React.ComponentProps<typeof PlanInlineEdit>> = {},
-) {
+function renderEdit(props: Partial<React.ComponentProps<typeof PlanInlineEdit>> = {}) {
   const onSave = props.onSave ?? vi.fn().mockResolvedValue(undefined);
   const value = props.value ?? "原始标题";
   const renderResult = render(
     <div>
-      <PlanInlineEdit
-        value={value}
-        onSave={onSave}
-        {...props}
-      />
+      <PlanInlineEdit value={value} onSave={onSave} {...props} />
       <button data-testid="outside">外部元素</button>
     </div>,
   );
@@ -146,7 +140,10 @@ describe("PlanInlineEdit", () => {
       // Use a deferred promise so the component stays in saving state.
       const pendingSaves: Array<() => void> = [];
       const onSave = vi.fn().mockImplementation(
-        () => new Promise<void>((resolve) => { pendingSaves.push(resolve as () => void); }),
+        () =>
+          new Promise<void>((resolve) => {
+            pendingSaves.push(resolve as () => void);
+          }),
       );
       const { user } = renderEdit({ onSave });
 
@@ -317,7 +314,6 @@ describe("PlanInlineEdit", () => {
         expect(onEditEnd).toHaveBeenCalledTimes(1);
       });
     });
-
   });
 
   describe("focus behavior", () => {
@@ -375,10 +371,7 @@ describe("PlanInlineEdit", () => {
       const { user } = renderEdit();
       await user.click(screen.getByText("原始标题"));
 
-      expect(screen.getByRole("textbox")).toHaveAttribute(
-        "aria-label",
-        "编辑标题",
-      );
+      expect(screen.getByRole("textbox")).toHaveAttribute("aria-label", "编辑标题");
     });
 
     it("input has aria-invalid when validation error exists", async () => {

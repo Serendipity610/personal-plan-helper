@@ -45,6 +45,13 @@ pnpm-debug.log*
 # ── Dev output / temp files ───────────────────────────────────────
 tauri-dev-*.txt
 vite-qa-*.txt
+%F%
+
+# ── Local analysis & QA artifacts ────────────────────────────────
+.analysis/
+.qa-*/
+review.md
+github-personal-workbench-research.html
 
 # ── Platform internals (excluded from version control) ───────────
 .agent_context/

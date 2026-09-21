@@ -175,10 +175,7 @@ describe("parseQuickCaptureInput", () => {
   });
 
   it("handles category + priority with 日常计划", () => {
-    const result = parseQuickCaptureInput(
-      "日常计划：【不重要不紧急】打扫卫生",
-      SAMPLE_CATEGORIES,
-    );
+    const result = parseQuickCaptureInput("日常计划：【不重要不紧急】打扫卫生", SAMPLE_CATEGORIES);
     expect(result).toEqual({
       categoryId: "cat-daily",
       priority: { importance: 1, urgency: 1 },
@@ -227,10 +224,7 @@ describe("parseQuickCaptureInput", () => {
   // ── Spacing between separators ───────────────────────────
 
   it("parses priority tag when space separates colon and tag", () => {
-    const result = parseQuickCaptureInput(
-      "工作计划： 【重要紧急】写周报",
-      SAMPLE_CATEGORIES,
-    );
+    const result = parseQuickCaptureInput("工作计划： 【重要紧急】写周报", SAMPLE_CATEGORIES);
     expect(result).toEqual({
       categoryId: "cat-work",
       priority: { importance: 3, urgency: 3 },
@@ -239,10 +233,7 @@ describe("parseQuickCaptureInput", () => {
   });
 
   it("parses priority tag when multiple spaces separate colon and tag", () => {
-    const result = parseQuickCaptureInput(
-      "工作计划：   【重要不紧急】写周报",
-      SAMPLE_CATEGORIES,
-    );
+    const result = parseQuickCaptureInput("工作计划：   【重要不紧急】写周报", SAMPLE_CATEGORIES);
     expect(result).toEqual({
       categoryId: "cat-work",
       priority: { importance: 3, urgency: 1 },

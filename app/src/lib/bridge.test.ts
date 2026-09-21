@@ -56,15 +56,11 @@ describe("safeInvoke", () => {
 
   it("throws BridgeUnavailableError when bridge is not available", async () => {
     // Bridge is unavailable by default (setup clears __TAURI_INTERNALS__)
-    await expect(safeInvoke("list_categories")).rejects.toThrow(
-      BridgeUnavailableError,
-    );
+    await expect(safeInvoke("list_categories")).rejects.toThrow(BridgeUnavailableError);
   });
 
   it("throws BridgeUnavailableError with diagnostic message when bridge is unavailable", async () => {
-    await expect(safeInvoke("list_categories")).rejects.toThrow(
-      /Tauri bridge 不可用/,
-    );
+    await expect(safeInvoke("list_categories")).rejects.toThrow(/Tauri bridge 不可用/);
   });
 
   it("does NOT throw raw TypeError when bridge is unavailable", async () => {
@@ -81,18 +77,14 @@ describe("safeInvoke", () => {
     const dbError = new Error("database is locked");
     mockInvoke.mockRejectedValue(dbError);
 
-    await expect(safeInvoke("list_categories")).rejects.toThrow(
-      "database is locked",
-    );
+    await expect(safeInvoke("list_categories")).rejects.toThrow("database is locked");
   });
 
   it("does not swallow invoke rejection details", async () => {
     setBridgeAvailable();
     mockInvoke.mockRejectedValue("Rust command failed: duplicate key");
 
-    await expect(safeInvoke("create_category")).rejects.toBe(
-      "Rust command failed: duplicate key",
-    );
+    await expect(safeInvoke("create_category")).rejects.toBe("Rust command failed: duplicate key");
   });
 
   it("returns result for arg-less command when bridge is available", async () => {
@@ -110,36 +102,28 @@ describe("safeInvoke", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__TAURI_INTERNALS__ = undefined;
 
-    await expect(safeInvoke("list_categories")).rejects.toThrow(
-      BridgeUnavailableError,
-    );
+    await expect(safeInvoke("list_categories")).rejects.toThrow(BridgeUnavailableError);
   });
 
   it("throws BridgeUnavailableError when __TAURI_INTERNALS__ is null", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__TAURI_INTERNALS__ = null;
 
-    await expect(safeInvoke("list_categories")).rejects.toThrow(
-      BridgeUnavailableError,
-    );
+    await expect(safeInvoke("list_categories")).rejects.toThrow(BridgeUnavailableError);
   });
 
   it("throws BridgeUnavailableError when __TAURI_INTERNALS__ is an empty object (no invoke)", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__TAURI_INTERNALS__ = {};
 
-    await expect(safeInvoke("list_categories")).rejects.toThrow(
-      BridgeUnavailableError,
-    );
+    await expect(safeInvoke("list_categories")).rejects.toThrow(BridgeUnavailableError);
   });
 
   it("throws BridgeUnavailableError when __TAURI_INTERNALS__ has invoke that is not a function", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__TAURI_INTERNALS__ = { invoke: "not-a-function" };
 
-    await expect(safeInvoke("list_categories")).rejects.toThrow(
-      BridgeUnavailableError,
-    );
+    await expect(safeInvoke("list_categories")).rejects.toThrow(BridgeUnavailableError);
   });
 });
 

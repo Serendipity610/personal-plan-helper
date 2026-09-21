@@ -28,10 +28,10 @@ pnpm check
 | `src/components/ui/` | shadcn/ui 基础组件，由 `components.json` 配置生成，不要手动修改 |
 | `src/store/useAppStore.ts` | 全局 Zustand store，前端状态统一管理入口 |
 | `src/lib/api.ts` | Tauri invoke 封装层，前端与 Rust 后端的桥接 |
-| `src/pages/` | 路由页面：矩阵 `/`、看板 `/kanban`、日历 `/calendar`、列表 `/list`、看板 `/dashboard` |
+| `src/pages/` | 路由页面：数据看板 `/dashboard`（根路由 `/` 重定向至此）、矩阵 `/matrix`、看板 `/kanban`、日历 `/calendar`、列表 `/list` |
 | `src-tauri/src/commands/` | Rust 侧 Tauri 命令实现，每文件对应一个领域 |
 | `src-tauri/src/db.rs` | SQLite 连接、版本化迁移逻辑 |
-| `src-tauri/src/seed.rs` | 开发环境种子数据，在 Tauri setup 阶段自动插入（仅当数据库为空） |
+| `src-tauri/src/seed.rs` | 种子数据，在 Tauri setup 阶段自动插入：4 个默认分类始终写入；开发工作流与示例计划仅在 debug 构建（`tauri:dev`）中写入 |
 
 ## TypeScript 路径别名
 

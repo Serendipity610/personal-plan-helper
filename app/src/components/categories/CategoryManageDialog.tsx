@@ -209,7 +209,8 @@ export function CategoryManageDialog({ onOpenChange }: CategoryManageDialogProps
           <AlertDialogHeader>
             <AlertDialogTitle>删除分类</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要删除分类「{deletingCategory?.name}」吗？该分类下的计划将变为未分类，此操作不可撤销。
+              确定要删除分类「{deletingCategory?.name}
+              」吗？该分类下的计划将变为未分类，此操作不可撤销。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
