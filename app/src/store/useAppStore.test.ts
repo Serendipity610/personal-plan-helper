@@ -70,7 +70,7 @@ describe("useAppStore plan actions", () => {
     expect(useAppStore.getState().plans).toEqual([updated]);
   });
 
-  it("editPlan calls toast.success on successful update", async () => {
+  it("editPlan does not show a success toast", async () => {
     const existing = makePlan({ id: "p1", title: "旧标题" });
     const updated = makePlan({ id: "p1", title: "新标题" });
     useAppStore.setState({ plans: [existing] });
@@ -78,7 +78,7 @@ describe("useAppStore plan actions", () => {
 
     await useAppStore.getState().editPlan({ id: "p1", title: "新标题" });
 
-    expect(mockToastSuccess).toHaveBeenCalledWith("计划更新成功");
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it("editPlan calls toast.error on failed update", async () => {
@@ -86,9 +86,9 @@ describe("useAppStore plan actions", () => {
     useAppStore.setState({ plans: [existing] });
     mockedApi.updatePlan.mockRejectedValue(new Error("网络错误"));
 
-    await expect(
-      useAppStore.getState().editPlan({ id: "p1", title: "新标题" }),
-    ).rejects.toThrow("网络错误");
+    await expect(useAppStore.getState().editPlan({ id: "p1", title: "新标题" })).rejects.toThrow(
+      "网络错误",
+    );
     expect(mockToastError).toHaveBeenCalledWith("更新计划失败: Error: 网络错误");
   });
 
@@ -100,6 +100,44 @@ describe("useAppStore plan actions", () => {
 
     expect(mockedApi.deletePlan).toHaveBeenCalledWith("p1");
     expect(useAppStore.getState().plans.map((p) => p.id)).toEqual(["p2"]);
+  });
+
+  it("undoes a deleted plan from the toast action", async () => {
+    const deleted = {
+      id: "p1",
+      title: "可撤销计划",
+      description: "描述",
+      category_id: null,
+      parent_id: null,
+      importance: 2,
+      urgency: 3,
+      ddl: "2026-08-08",
+      tag_workflow_id: null,
+      current_step_index: 0,
+      period_type: null,
+      period_value: null,
+      status: "active" as const,
+      completed_at: null,
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+    };
+    const restored = { ...deleted, id: "new-p1" };
+    useAppStore.setState({ plans: [deleted] });
+    mockedApi.deletePlan.mockResolvedValue(true);
+    mockedApi.createPlan.mockResolvedValue(restored);
+
+    await useAppStore.getState().removePlan("p1");
+    const [, options] = mockToastSuccess.mock.calls[0] as [
+      string,
+      { action: { onClick: () => void } },
+    ];
+    options.action.onClick();
+    await vi.waitFor(() => expect(useAppStore.getState().plans).toEqual([restored]));
+
+    expect(mockedApi.createPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ title: deleted.title }),
+    );
+    expect(mockToastSuccess).toHaveBeenCalledWith("已撤销删除");
   });
 
   it("fetchPlans loads plans into state", async () => {
@@ -240,6 +278,33 @@ describe("useAppStore tag workflow actions", () => {
 
     expect(useAppStore.getState().error).toContain("db down");
     expect(mockToastApiError).toHaveBeenCalledWith("加载工作流", expect.any(Error));
+  });
+
+  it("removeTagWorkflow unbinds referencing plans and resets their step", async () => {
+    useAppStore.setState({
+      tagWorkflows: [
+        {
+          id: "wf-1",
+          name: "开发流程",
+          steps: '["分析","开发"]',
+          created_at: "2026-08-01T00:00:00Z",
+        },
+      ],
+      plans: [
+        makePlan({ id: "p1", tag_workflow_id: "wf-1", current_step_index: 1 }),
+        makePlan({ id: "p2", tag_workflow_id: "wf-2", current_step_index: 2 }),
+      ],
+    });
+    mockedApi.deleteTagWorkflow.mockResolvedValue(true);
+
+    await useAppStore.getState().removeTagWorkflow("wf-1");
+
+    expect(
+      useAppStore.getState().plans.map((p) => [p.id, p.tag_workflow_id, p.current_step_index]),
+    ).toEqual([
+      ["p1", null, 0],
+      ["p2", "wf-2", 2],
+    ]);
   });
 });
 

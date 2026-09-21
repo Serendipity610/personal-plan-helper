@@ -17,6 +17,7 @@ export function makePlan(overrides: Partial<Plan> = {}): Plan {
     status: "active",
     created_at: "2026-08-01T00:00:00Z",
     updated_at: "2026-08-01T00:00:00Z",
+    completed_at: null,
     ...overrides,
   };
 }

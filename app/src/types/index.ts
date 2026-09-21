@@ -40,6 +40,7 @@ export interface Plan {
   period_type: "daily" | "monthly" | "quarterly" | "yearly" | null;
   period_value: string | null;
   status: PlanStatus;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

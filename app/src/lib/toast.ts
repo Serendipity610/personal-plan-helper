@@ -1,9 +1,19 @@
 import { toast as sonnerToast } from "sonner";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface ToastOptions {
+  duration?: number;
+  action?: ToastAction;
+}
+
 /** Unified toast helper — wraps sonner for consistent defaults */
 export const toast = {
-  success(message: string) {
-    sonnerToast.success(message);
+  success(message: string, options?: ToastOptions) {
+    sonnerToast.success(message, options);
   },
   error(message: string) {
     sonnerToast.error(message, {

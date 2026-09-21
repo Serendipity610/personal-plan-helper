@@ -92,14 +92,22 @@ beforeEach(() => {
     error: null,
   });
   vi.clearAllMocks();
+  localStorage.clear();
   mockedApi.getDashboardStats.mockResolvedValue(mockStats);
   mockedApi.getCompletionTrend.mockResolvedValue(mockTrend);
   mockedApi.getUrgencyDistribution.mockResolvedValue(mockUrgency);
   mockedApi.getCategoryDistribution.mockResolvedValue(mockCategory);
 });
 
+function todayLocal() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 function assertAllCalledWithDays(expectedDays: number) {
-  expect(mockedApi.getCompletionTrend).toHaveBeenLastCalledWith(expectedDays);
+  const today = todayLocal();
+  expect(mockedApi.getDashboardStats).toHaveBeenLastCalledWith(today);
+  expect(mockedApi.getCompletionTrend).toHaveBeenLastCalledWith(expectedDays, today);
   expect(mockedApi.getUrgencyDistribution).toHaveBeenLastCalledWith(expectedDays);
   expect(mockedApi.getCategoryDistribution).toHaveBeenLastCalledWith(expectedDays);
 }
@@ -160,6 +168,51 @@ describe("DashboardPage rendering", () => {
 });
 
 describe("DashboardPage empty state", () => {
+  it("shows first-run card and hides it after loading sample data", async () => {
+    const makeSample = (id: string) => ({
+      id,
+      title: `示例 ${id}`,
+      description: "示例计划",
+      category_id: null,
+      parent_id: null,
+      importance: 2,
+      urgency: 2,
+      ddl: null,
+      tag_workflow_id: null,
+      current_step_index: 0,
+      period_type: null,
+      period_value: null,
+      status: "active" as const,
+      completed_at: null,
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+    });
+    mockedApi.createPlan
+      .mockResolvedValueOnce(makeSample("sample-1"))
+      .mockResolvedValueOnce(makeSample("sample-2"))
+      .mockResolvedValueOnce(makeSample("sample-3"));
+    mockedApi.getDashboardStats.mockResolvedValue({
+      total_plans: 0,
+      completed_plans: 0,
+      completion_rate: 0,
+      today_pending: 0,
+      overdue_count: 0,
+      week_change: 0,
+    });
+    mockedApi.getCompletionTrend.mockResolvedValue([]);
+    mockedApi.getUrgencyDistribution.mockResolvedValue([]);
+    mockedApi.getCategoryDistribution.mockResolvedValue([]);
+
+    const user = userEvent.setup();
+    renderPage();
+    expect(await screen.findByText("开始管理你的计划")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "加载示例数据" }));
+
+    expect(await screen.findByText("暂无数据")).toBeInTheDocument();
+    expect(screen.queryByText("开始管理你的计划")).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("pph:sample-plan-ids") ?? "[]")).toHaveLength(3);
+  });
+
   it("shows empty state when there are no plans", async () => {
     mockedApi.getDashboardStats.mockResolvedValue({
       total_plans: 0,
@@ -179,9 +232,8 @@ describe("DashboardPage empty state", () => {
     renderPage();
 
     expect(await screen.findByText("暂无数据")).toBeInTheDocument();
-    expect(
-      screen.getByText(/创建第一个计划开始使用/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("开始管理你的计划")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建第一个计划" })).toBeInTheDocument();
   });
 });
 

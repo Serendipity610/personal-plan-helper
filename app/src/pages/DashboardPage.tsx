@@ -1,11 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { LayoutDashboard } from "lucide-react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { LayoutDashboard, Plus, Trash2 } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
+import { useAppStore } from "@/store/useAppStore";
 import {
   PieChart,
   Pie,
@@ -23,6 +21,8 @@ import {
 } from "recharts";
 import * as api from "@/lib/api";
 import { toastApiError } from "@/lib/toast";
+import { toDateInputValue } from "@/lib/date";
+import { addDays } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   DashboardStats,
@@ -104,18 +104,10 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-3">
-          <div
-            className={`text-2xl font-bold ${
-              highlight ? "text-destructive" : ""
-            }`}
-          >
-            {value}
-          </div>
+          <div className={`text-2xl font-bold ${highlight ? "text-destructive" : ""}`}>{value}</div>
           {ring && <ProgressRing pct={Number.parseFloat(value) || 0} />}
         </div>
-        {subtitle && (
-          <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-        )}
+        {subtitle && <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>}
       </CardContent>
     </Card>
   );
@@ -140,9 +132,7 @@ function PeriodSwitcher({
           aria-label={label}
           onClick={() => onChange(key)}
           className={`px-3 py-1 text-sm transition-colors first:rounded-l-md last:rounded-r-md ${
-            period === key
-              ? "bg-primary text-primary-foreground"
-              : "bg-background hover:bg-accent"
+            period === key ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent"
           }`}
         >
           {label}
@@ -184,6 +174,12 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<DashboardPeriod>("week");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const [formOpen, setFormOpen] = useState(false);
+  const plans = useAppStore((s) => s.plans);
+  const categories = useAppStore((s) => s.categories);
+  const addPlan = useAppStore((s) => s.addPlan);
+  const removePlan = useAppStore((s) => s.removePlan);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,9 +188,10 @@ export default function DashboardPage() {
       setError(null);
       try {
         const days = PERIOD_DAYS[p];
+        const today = toDateInputValue(new Date());
         const [s, t, u, c] = await Promise.all([
-          api.getDashboardStats(),
-          api.getCompletionTrend(days),
+          api.getDashboardStats(today),
+          api.getCompletionTrend(days, today),
           api.getUrgencyDistribution(days),
           api.getCategoryDistribution(days),
         ]);
@@ -217,11 +214,73 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [period]);
+  }, [period, retryKey]);
 
   const handlePeriodChange = useCallback((p: DashboardPeriod) => {
     setPeriod(p);
   }, []);
+
+  const sampleIds = (() => {
+    try {
+      const raw = localStorage.getItem("pph:sample-plan-ids");
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) && parsed.every((id): id is string => typeof id === "string")
+        ? parsed
+        : [];
+    } catch {
+      return [];
+    }
+  })();
+  const samplePlans = plans.filter((plan) => sampleIds.includes(plan.id));
+  const hasSamples = sampleIds.length > 0 && samplePlans.length > 0;
+
+  async function loadSampleData() {
+    const defaultCategories = categories.filter((category) => category.is_default);
+    const categoryPool = defaultCategories.length >= 3 ? defaultCategories : categories;
+    const tomorrow = toDateInputValue(addDays(new Date(), 1));
+    const created = await Promise.all(
+      [
+        { title: "规划本周重点", importance: 4, urgency: 4, ddl: null },
+        { title: "安排学习时间", importance: 4, urgency: 1, ddl: tomorrow },
+        { title: "整理收件箱", importance: 1, urgency: 4, ddl: null },
+      ].map((sample, index) =>
+        addPlan({
+          ...sample,
+          description: "示例计划",
+          category_id: categoryPool[index]?.id ?? null,
+          current_step_index: 0,
+          tag_workflow_id: null,
+        }),
+      ),
+    );
+    localStorage.setItem("pph:sample-plan-ids", JSON.stringify(created.map((plan) => plan.id)));
+  }
+
+  async function clearSampleData() {
+    await Promise.all(samplePlans.map((plan) => removePlan(plan.id)));
+    localStorage.removeItem("pph:sample-plan-ids");
+  }
+
+  const onboardingCard = plans.length === 0 && (
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+        <LayoutDashboard className="h-10 w-10 text-muted-foreground opacity-50" />
+        <div>
+          <h3 className="text-lg font-semibold">开始管理你的计划</h3>
+          <p className="mt-1 text-sm text-muted-foreground">数据仅保存在本机</p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button type="button" onClick={() => setFormOpen(true)}>
+            <Plus className="h-4 w-4" />
+            创建第一个计划
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void loadSampleData()}>
+            加载示例数据
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   // ── Loading state ──
   if (loading && !stats) {
@@ -266,6 +325,9 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <p className="text-destructive">{error}</p>
+            <Button type="button" variant="outline" onClick={() => setRetryKey((key) => key + 1)}>
+              重试
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -277,17 +339,14 @@ export default function DashboardPage() {
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold tracking-tight">数据总览</h2>
+        {onboardingCard}
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 gap-2">
-            <LayoutDashboard className="mb-2 h-12 w-12 text-muted-foreground opacity-40" />
-            <p className="text-lg font-medium text-muted-foreground">
-              暂无数据
-            </p>
-            <p className="text-sm text-muted-foreground">
-              创建第一个计划开始使用，看板数据将在此展示
-            </p>
+          <CardContent className="flex flex-col items-center justify-center py-12 gap-2">
+            <p className="text-lg font-medium text-muted-foreground">暂无数据</p>
+            <p className="text-sm text-muted-foreground">创建计划后，看板数据将在此展示</p>
           </CardContent>
         </Card>
+        {formOpen && <PlanFormDialog onOpenChange={setFormOpen} plan={null} />}
       </div>
     );
   }
@@ -312,7 +371,22 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">数据总览</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold tracking-tight">数据总览</h2>
+        {hasSamples && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => void clearSampleData()}
+          >
+            <Trash2 className="h-4 w-4" />
+            清除示例数据
+          </Button>
+        )}
+      </div>
+      {onboardingCard}
 
       {/* Stat cards row */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -323,9 +397,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="完成率"
-          value={
-            stats ? `${(Math.round(stats.completion_rate * 10) / 10).toFixed(1)}%` : "0%"
-          }
+          value={stats ? `${(Math.round(stats.completion_rate * 10) / 10).toFixed(1)}%` : "0%"}
           ring
         />
         <StatCard title="今日待办" value={stats ? String(stats.today_pending) : "0"} />
@@ -372,9 +444,7 @@ export default function DashboardPage() {
         {/* Completion trend line chart */}
         <ChartCard
           title="完成趋势"
-          action={
-            <PeriodSwitcher period={period} onChange={handlePeriodChange} />
-          }
+          action={<PeriodSwitcher period={period} onChange={handlePeriodChange} />}
         >
           {trend.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -433,6 +503,7 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      {formOpen && <PlanFormDialog onOpenChange={setFormOpen} plan={null} />}
     </div>
   );
 }

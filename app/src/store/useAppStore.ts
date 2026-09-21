@@ -89,7 +89,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         plans: get().plans.map((p) => (p.id === plan.id ? plan : p)),
       });
-      toast.success("计划更新成功");
       return plan;
     } catch (e) {
       toast.error(`更新计划失败: ${String(e)}`);
@@ -98,10 +97,49 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   removePlan: async (id) => {
+    const snapshot = get().plans.find((p) => p.id === id);
     try {
       await api.deletePlan(id);
       set({ plans: get().plans.filter((p) => p.id !== id) });
-      toast.success("计划已删除");
+
+      let restored = false;
+      toast.success("计划已删除", {
+        duration: 6000,
+        ...(snapshot
+          ? {
+              action: {
+                label: "撤销",
+                onClick: () => {
+                  if (restored) return;
+                  restored = true;
+                  void (async () => {
+                    try {
+                      const plan = await api.createPlan({
+                        title: snapshot.title,
+                        description: snapshot.description,
+                        category_id: snapshot.category_id,
+                        parent_id: snapshot.parent_id,
+                        importance: snapshot.importance,
+                        urgency: snapshot.urgency,
+                        ddl: snapshot.ddl,
+                        tag_workflow_id: snapshot.tag_workflow_id,
+                        current_step_index: snapshot.current_step_index,
+                        period_type: snapshot.period_type,
+                        period_value: snapshot.period_value,
+                        status: snapshot.status,
+                      });
+                      set({ plans: [plan, ...get().plans] });
+                      toast.success("已撤销删除");
+                    } catch (e) {
+                      restored = false;
+                      toast.error(`撤销删除失败: ${String(e)}`);
+                    }
+                  })();
+                },
+              },
+            }
+          : {}),
+      });
     } catch (e) {
       toast.error(`删除计划失败: ${String(e)}`);
       throw e;
@@ -202,7 +240,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeTagWorkflow: async (id) => {
     try {
       await api.deleteTagWorkflow(id);
-      set({ tagWorkflows: get().tagWorkflows.filter((w) => w.id !== id) });
+      set({
+        tagWorkflows: get().tagWorkflows.filter((w) => w.id !== id),
+        plans: get().plans.map((p) =>
+          p.tag_workflow_id === id ? { ...p, tag_workflow_id: null, current_step_index: 0 } : p,
+        ),
+      });
       toast.success("工作流已删除");
     } catch (e) {
       toast.error(`删除工作流失败: ${String(e)}`);
