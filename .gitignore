@@ -50,6 +50,7 @@ vite-qa-*.txt
 # ── Local analysis & QA artifacts ────────────────────────────────
 .analysis/
 .qa-*/
+gui-test-screenshots/
 review.md
 github-personal-workbench-research.html
 

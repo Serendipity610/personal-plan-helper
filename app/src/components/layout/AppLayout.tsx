@@ -246,10 +246,10 @@ export default function AppLayout() {
 
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Top header bar with global filters */}
-        <header className="flex h-14 items-center justify-between gap-4 border-b px-6">
-          <h1 className="text-lg font-semibold whitespace-nowrap">工作计划管理</h1>
-          <div className="flex items-center gap-2">
+        {/* Top header bar with global filters. min-h 而非固定高：筛选 chips 出现时允许长高 */}
+        <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-6 py-2">
+          <h1 className="shrink-0 text-lg font-semibold whitespace-nowrap">工作计划管理</h1>
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
             {location.pathname !== "/dashboard" && (
               <FilterBar
                 onManageClick={() => setManageOpen(true)}
@@ -312,7 +312,6 @@ export default function AppLayout() {
 
       {/* Global command palette (Ctrl+K) — key forces remount on open to reset state */}
       <CommandPalette
-        key={String(commandPaletteOpen)}
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
         onCreatePlan={openCreateDialog}
