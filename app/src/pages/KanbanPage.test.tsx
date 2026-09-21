@@ -130,7 +130,7 @@ describe("KanbanPage", () => {
     expect(screen.getByText("开发任务")).toBeInTheDocument();
   });
 
-  it("shows completed plans when all statuses are selected", () => {
+  it("hides completed plans under 全部 and shows the active-only hint", () => {
     useAppStore.setState({
       plans: [
         planWithStep({ id: "active-plan", title: "进行中任务" }),
@@ -141,7 +141,8 @@ describe("KanbanPage", () => {
     renderPage();
 
     expect(screen.getByText("进行中任务")).toBeInTheDocument();
-    expect(screen.getByText("已完成任务")).toBeInTheDocument();
+    expect(screen.queryByText("已完成任务")).not.toBeInTheDocument();
+    expect(screen.getByText("仅显示进行中")).toBeInTheDocument();
   });
 
   it("places unbound plans in 未加入工作流 column", () => {

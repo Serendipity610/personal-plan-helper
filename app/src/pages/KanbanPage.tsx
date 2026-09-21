@@ -152,11 +152,12 @@ export default function KanbanPage() {
 
   const steps = useMemo(() => parseWorkflowSteps(selectedWorkflow), [selectedWorkflow]);
 
+  // 执行视图：状态选「全部」时只显示进行中（页面有对应标注），显式选择的状态照常生效
   const filteredPlans = useMemo(
     () =>
       filterPlans(plans, {
         categoryId: selectedCategoryId,
-        status: selectedStatus,
+        status: selectedStatus === "all" ? "active" : selectedStatus,
         timeRange: selectedTimeRange,
       }),
     [plans, selectedCategoryId, selectedStatus, selectedTimeRange],
@@ -284,7 +285,12 @@ export default function KanbanPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">看板视图</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold tracking-tight">看板视图</h2>
+          {selectedStatus === "all" && (
+            <span className="text-sm text-muted-foreground">仅显示进行中</span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <select
             aria-label="选择工作流"

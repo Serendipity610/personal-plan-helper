@@ -111,7 +111,7 @@ describe("MatrixPage rendering", () => {
     expect(skeletonCards.length).toBeGreaterThan(0);
   });
 
-  it("distributes all plans by importance/urgency by default", async () => {
+  it("distributes active plans by importance/urgency by default and hides completed", async () => {
     renderPage();
     await screen.findByTestId("quadrant-q1");
 
@@ -119,7 +119,9 @@ describe("MatrixPage rendering", () => {
     expect(quadrant("q2").getByTestId("plan-card-p-q2")).toBeInTheDocument();
     expect(quadrant("q3").getByTestId("plan-card-p-q3")).toBeInTheDocument();
     expect(quadrant("q4").getByTestId("plan-card-p-q4")).toBeInTheDocument();
-    expect(quadrant("q1").getByTestId("plan-card-p-done")).toBeInTheDocument();
+    // 「全部」状态下执行视图只显示进行中，且页面有明确标注
+    expect(screen.getByText("仅显示进行中")).toBeInTheDocument();
+    expect(quadrant("q1").queryByTestId("plan-card-p-done")).not.toBeInTheDocument();
   });
 
   it("shows the category badge and formatted DDL on a card", async () => {
@@ -324,6 +326,8 @@ describe("MatrixPage global filters", () => {
 
     expect(screen.getByTestId("plan-card-p-done")).toBeInTheDocument();
     expect(screen.queryByTestId("plan-card-p-q1")).not.toBeInTheDocument();
+    // 显式选择状态后，执行视图的默认标注消失
+    expect(screen.queryByText("仅显示进行中")).not.toBeInTheDocument();
   });
 
   it("shows only plans due within the selected time range", async () => {
@@ -419,6 +423,7 @@ describe("MatrixPage status toggle", () => {
         expect.objectContaining({ id: "p-q1", status: "completed" }),
       ),
     );
-    await waitFor(() => expect(screen.getByTestId("plan-card-p-q1")).toBeInTheDocument());
+    // 完成后计划离开执行视图（默认仅显示进行中）
+    await waitFor(() => expect(screen.queryByTestId("plan-card-p-q1")).not.toBeInTheDocument());
   });
 });

@@ -42,6 +42,18 @@ describe("PlanCard 截止日期 display", () => {
     expect(screen.getByText(/已逾期/)).toBeInTheDocument();
   });
 
+  it("does not show urgency badge for completed plan with past 截止日期", () => {
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - 5);
+    const ddl = pastDate.toISOString().slice(0, 10);
+
+    renderCard({ ddl, status: "completed" });
+
+    // 日期仍显示，但已完成计划不再提示逾期
+    expect(screen.getByText(ddl)).toBeInTheDocument();
+    expect(screen.queryByText(/已逾期/)).not.toBeInTheDocument();
+  });
+
   it("shows today badge for today 截止日期", () => {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;

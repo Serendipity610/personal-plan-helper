@@ -122,7 +122,11 @@ function PlanCardContent({
         )}
         {plan.ddl &&
           (() => {
-            const ddlInfo = getDdlStatus(plan.ddl);
+            // 紧急度徽标只对进行中的计划有意义；已完成/已取消不再提示逾期或临近
+            const ddlInfo =
+              plan.status === "active"
+                ? getDdlStatus(plan.ddl)
+                : { status: "normal" as const, label: "" };
             return (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <CalendarDays className="h-3 w-3" />
