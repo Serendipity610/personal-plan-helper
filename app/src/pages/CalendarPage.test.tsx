@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -83,6 +83,8 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(new Date(2026, 7, 7));
   useAppStore.setState({
     plans: [],
     categories: [],
@@ -96,6 +98,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.listPlans.mockResolvedValue(seedPlans);
   mockedApi.listCategories.mockResolvedValue(categories);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 /** Wait for plans to load — check for the period title or month view */
