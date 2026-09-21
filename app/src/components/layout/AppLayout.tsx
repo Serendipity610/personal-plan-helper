@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -29,8 +30,8 @@ const navItems = [
   { to: "/matrix", label: "四象限", icon: Grid3X3, shortcut: "1" },
   { to: "/kanban", label: "看板", icon: Columns3, shortcut: "2" },
   { to: "/calendar", label: "日历", icon: Calendar, shortcut: "3" },
-  { to: "/list", label: "列表", icon: List, shortcut: "4" },
-  { to: "/dashboard", label: "总览", icon: LayoutDashboard, shortcut: "5" },
+  { to: "/list", label: "全部计划", icon: List, shortcut: "4" },
+  { to: "/dashboard", label: "数据总览", icon: LayoutDashboard, shortcut: "5" },
 ];
 
 const pageVariants = {
@@ -153,9 +154,7 @@ export default function AppLayout() {
       >
         {/* Logo / Title */}
         <div className="flex h-14 items-center justify-between border-b px-3">
-          {!collapsed && (
-            <span className="text-sm font-semibold truncate">Personal Plan Helper</span>
-          )}
+          {!collapsed && <span className="text-sm font-semibold truncate">个人计划助手</span>}
           <Button
             variant="ghost"
             size="icon"
@@ -251,10 +250,21 @@ export default function AppLayout() {
         <header className="flex h-14 items-center justify-between gap-4 border-b px-6">
           <h1 className="text-lg font-semibold whitespace-nowrap">工作计划管理</h1>
           <div className="flex items-center gap-2">
-            <FilterBar
-              onManageClick={() => setManageOpen(true)}
-              onWorkflowManageClick={() => setWorkflowManageOpen(true)}
-            />
+            {location.pathname !== "/dashboard" && (
+              <FilterBar
+                onManageClick={() => setManageOpen(true)}
+                onWorkflowManageClick={() => setWorkflowManageOpen(true)}
+              />
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => window.dispatchEvent(new CustomEvent("pph:open-command-palette"))}
+            >
+              <Search className="mr-1 h-3.5 w-3.5" />
+              搜索
+            </Button>
             {/* Dark mode toggle */}
             <Button
               variant="ghost"
@@ -263,11 +273,7 @@ export default function AppLayout() {
               onClick={toggleTheme}
               aria-label={theme === "dark" ? "切换亮色模式" : "切换暗色模式"}
             >
-              {theme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           </div>
         </header>

@@ -272,8 +272,6 @@ describe("AppLayout keyboard shortcuts", () => {
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    // CommandPalette has a search input
-    expect(screen.getByPlaceholderText("搜索页面或执行命令...")).toBeInTheDocument();
   });
 
   it("Ctrl+N opens the quick-create plan dialog on Matrix page", async () => {

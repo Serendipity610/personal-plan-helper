@@ -1,4 +1,4 @@
-import { Settings2, Workflow } from "lucide-react";
+import { Settings2, Workflow, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { STATUS_OPTIONS, TIME_RANGE_OPTIONS } from "@/lib/filters";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,25 @@ export function FilterBar({ onManageClick, onWorkflowManageClick }: FilterBarPro
   const setSelectedStatus = useAppStore((s) => s.setSelectedStatus);
   const setSelectedTimeRange = useAppStore((s) => s.setSelectedTimeRange);
 
+  const selectedCategory = categories.find((category) => category.id === selectedCategoryId);
+  const selectedStatusLabel =
+    selectedStatus === "active"
+      ? "进行中"
+      : STATUS_OPTIONS.find((option) => option.value === selectedStatus)?.label;
+  const selectedTimeRangeLabel = TIME_RANGE_OPTIONS.find(
+    (option) => option.value === selectedTimeRange,
+  )?.label;
+  const hasActiveFilters =
+    selectedCategoryId !== null || selectedStatus !== "all" || selectedTimeRange !== "all";
+
+  function clearAllFilters() {
+    setSelectedCategoryId(null);
+    setSelectedStatus("all");
+    setSelectedTimeRange("all");
+  }
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start gap-2">
       <Select
         value={selectedCategoryId ?? "all"}
         onValueChange={(v) => setSelectedCategoryId(v === "all" ? null : v)}
@@ -54,7 +71,7 @@ export function FilterBar({ onManageClick, onWorkflowManageClick }: FilterBarPro
         <SelectContent>
           {STATUS_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>
-              {option.label}
+              {option.value === "active" ? "进行中" : option.label}
             </SelectItem>
           ))}
         </SelectContent>
@@ -95,6 +112,53 @@ export function FilterBar({ onManageClick, onWorkflowManageClick }: FilterBarPro
           <Workflow className="mr-1 h-3.5 w-3.5" />
           工作流管理
         </Button>
+      )}
+
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-1" aria-label="已启用筛选">
+          {selectedCategory && (
+            <span className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs">
+              分类：{selectedCategory.name}
+              <button
+                type="button"
+                className="rounded-sm hover:bg-accent"
+                aria-label="移除分类筛选"
+                onClick={() => setSelectedCategoryId(null)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {selectedStatus !== "all" && selectedStatusLabel && (
+            <span className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs">
+              状态：{selectedStatusLabel}
+              <button
+                type="button"
+                className="rounded-sm hover:bg-accent"
+                aria-label="移除状态筛选"
+                onClick={() => setSelectedStatus("all")}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {selectedTimeRange !== "all" && selectedTimeRangeLabel && (
+            <span className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs">
+              时间：{selectedTimeRangeLabel}
+              <button
+                type="button"
+                className="rounded-sm hover:bg-accent"
+                aria-label="移除时间筛选"
+                onClick={() => setSelectedTimeRange("all")}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearAllFilters}>
+            清除全部
+          </Button>
+        </div>
       )}
     </div>
   );
