@@ -29,9 +29,9 @@ function renderCard(planOverrides = {}, workflowOverrides = {}) {
   );
 }
 
-describe("PlanCard DDL display", () => {
-  it("shows overdue badge for past DDL", () => {
-    // DDL 5 days in the past relative to "now"
+describe("PlanCard 截止日期 display", () => {
+  it("shows overdue badge for past 截止日期", () => {
+    // 截止日期 5 days in the past relative to "now"
     const pastDate = new Date();
     pastDate.setDate(pastDate.getDate() - 5);
     const ddl = pastDate.toISOString().slice(0, 10);
@@ -42,7 +42,7 @@ describe("PlanCard DDL display", () => {
     expect(screen.getByText(/已逾期/)).toBeInTheDocument();
   });
 
-  it("shows today badge for today DDL", () => {
+  it("shows today badge for today 截止日期", () => {
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
@@ -51,7 +51,7 @@ describe("PlanCard DDL display", () => {
     expect(screen.getByText("今天截止")).toBeInTheDocument();
   });
 
-  it("shows soon badge for DDL within 3 days", () => {
+  it("shows soon badge for 截止日期 within 3 days", () => {
     const soonDate = new Date();
     soonDate.setDate(soonDate.getDate() + 2);
     const ddl = soonDate.toISOString().slice(0, 10);
@@ -61,7 +61,7 @@ describe("PlanCard DDL display", () => {
     expect(screen.getByText("即将到期")).toBeInTheDocument();
   });
 
-  it("does not show badge for DDL beyond 3 days", () => {
+  it("does not show badge for 截止日期 beyond 3 days", () => {
     const farDate = new Date();
     farDate.setDate(farDate.getDate() + 10);
     const ddl = farDate.toISOString().slice(0, 10);
@@ -73,7 +73,7 @@ describe("PlanCard DDL display", () => {
     expect(screen.queryByText("即将到期")).not.toBeInTheDocument();
   });
 
-  it("does not show badge when DDL is null", () => {
+  it("does not show badge when 截止日期 is null", () => {
     renderCard({ ddl: null });
 
     expect(screen.queryByText("今天截止")).not.toBeInTheDocument();
@@ -81,7 +81,7 @@ describe("PlanCard DDL display", () => {
     expect(screen.queryByText("即将到期")).not.toBeInTheDocument();
   });
 
-  it("still shows the DDL date string alongside the badge", () => {
+  it("still shows the 截止日期 date string alongside the badge", () => {
     const pastDate = new Date();
     pastDate.setDate(pastDate.getDate() - 1);
     const y = pastDate.getFullYear();

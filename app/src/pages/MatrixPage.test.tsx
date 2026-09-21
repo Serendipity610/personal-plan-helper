@@ -55,6 +55,8 @@ function quadrant(q: "q1" | "q2" | "q3" | "q4") {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(new Date(2026, 7, 7));
   useAppStore.setState({
     plans: [],
     categories: [],
@@ -68,6 +70,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.listPlans.mockResolvedValue(seedPlans);
   mockedApi.listCategories.mockResolvedValue(categories);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("MatrixPage rendering", () => {
@@ -87,7 +93,9 @@ describe("MatrixPage rendering", () => {
 
     // Now shows full-page empty state with icon and CTA button
     await screen.findByText("暂无计划");
-    expect(screen.getByText("创建第一个计划，它将根据重要度与紧急度出现在对应象限")).toBeInTheDocument();
+    expect(
+      screen.getByText("创建第一个计划，它将根据重要度与紧急度出现在对应象限"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建计划" })).toBeInTheDocument();
   });
 
@@ -103,7 +111,7 @@ describe("MatrixPage rendering", () => {
     expect(skeletonCards.length).toBeGreaterThan(0);
   });
 
-  it("distributes active plans by importance/urgency and hides terminal ones", async () => {
+  it("distributes all plans by importance/urgency by default", async () => {
     renderPage();
     await screen.findByTestId("quadrant-q1");
 
@@ -111,7 +119,7 @@ describe("MatrixPage rendering", () => {
     expect(quadrant("q2").getByTestId("plan-card-p-q2")).toBeInTheDocument();
     expect(quadrant("q3").getByTestId("plan-card-p-q3")).toBeInTheDocument();
     expect(quadrant("q4").getByTestId("plan-card-p-q4")).toBeInTheDocument();
-    expect(screen.queryByTestId("plan-card-p-done")).not.toBeInTheDocument();
+    expect(quadrant("q1").getByTestId("plan-card-p-done")).toBeInTheDocument();
   });
 
   it("shows the category badge and formatted DDL on a card", async () => {
@@ -411,6 +419,6 @@ describe("MatrixPage status toggle", () => {
         expect.objectContaining({ id: "p-q1", status: "completed" }),
       ),
     );
-    await waitFor(() => expect(screen.queryByTestId("plan-card-p-q1")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("plan-card-p-q1")).toBeInTheDocument());
   });
 });

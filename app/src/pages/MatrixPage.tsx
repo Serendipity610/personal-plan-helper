@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
+  defaultKeyboardCoordinateGetter,
   useDroppable,
   useSensor,
   useSensors,
@@ -106,15 +108,15 @@ export default function MatrixPage() {
     fetchCategories();
   }, [fetchPlans, fetchCategories]);
 
-  // 全局筛选：四象限本质是执行视图，状态为"全部"时仅展示活跃计划
-  const activePlans = useMemo(() => {
-    const effectiveStatus = selectedStatus === "all" ? "active" : selectedStatus;
-    return filterPlans(plans, {
-      categoryId: selectedCategoryId,
-      status: effectiveStatus,
-      timeRange: selectedTimeRange,
-    });
-  }, [plans, selectedCategoryId, selectedStatus, selectedTimeRange]);
+  const activePlans = useMemo(
+    () =>
+      filterPlans(plans, {
+        categoryId: selectedCategoryId,
+        status: selectedStatus,
+        timeRange: selectedTimeRange,
+      }),
+    [plans, selectedCategoryId, selectedStatus, selectedTimeRange],
+  );
 
   const plansByQuadrant = useMemo(() => {
     const buckets: Record<Quadrant, Plan[]> = { q1: [], q2: [], q3: [], q4: [] };
@@ -126,7 +128,10 @@ export default function MatrixPage() {
 
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: defaultKeyboardCoordinateGetter }),
+  );
 
   function openCreateDialog() {
     setEditingPlan(null);

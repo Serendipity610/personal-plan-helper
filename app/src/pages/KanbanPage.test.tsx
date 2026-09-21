@@ -23,8 +23,16 @@ vi.mock("@/lib/api", () => ({
 
 const mockedApi = vi.mocked(api);
 
-const wf = makeTagWorkflow({ id: "wf-1", name: "开发流程", steps: JSON.stringify(["需求", "设计", "开发", "测试"]) });
-const wfB = makeTagWorkflow({ id: "wf-2", name: "学习流程", steps: JSON.stringify(["预习", "学习", "复习"]) });
+const wf = makeTagWorkflow({
+  id: "wf-1",
+  name: "开发流程",
+  steps: JSON.stringify(["需求", "设计", "开发", "测试"]),
+});
+const wfB = makeTagWorkflow({
+  id: "wf-2",
+  name: "学习流程",
+  steps: JSON.stringify(["预习", "学习", "复习"]),
+});
 const cat = makeCategory({ id: "cat-1", name: "工作", color: "#3B82F6" });
 
 function renderPage() {
@@ -50,7 +58,12 @@ beforeEach(() => {
       planWithStep({ id: "plan-1", title: "需求任务", current_step_index: 0 }),
       planWithStep({ id: "plan-2", title: "设计任务", current_step_index: 1 }),
       planWithStep({ id: "plan-3", title: "开发任务", current_step_index: 2 }),
-      planWithStep({ id: "plan-4", title: "无流程任务", tag_workflow_id: null, current_step_index: 0 }),
+      planWithStep({
+        id: "plan-4",
+        title: "无流程任务",
+        tag_workflow_id: null,
+        current_step_index: 0,
+      }),
     ],
     categories: [cat],
     tagWorkflows: [wf],
@@ -94,10 +107,10 @@ describe("KanbanPage", () => {
     expect(screen.getByText("测试")).toBeInTheDocument();
   });
 
-  it("renders 未分类 column", () => {
+  it("renders 未加入工作流 column", () => {
     renderPage();
 
-    expect(screen.getByText("未分类")).toBeInTheDocument();
+    expect(screen.getByText("未加入工作流")).toBeInTheDocument();
   });
 
   it("shows plan count in column headers", () => {
@@ -117,10 +130,39 @@ describe("KanbanPage", () => {
     expect(screen.getByText("开发任务")).toBeInTheDocument();
   });
 
-  it("places unbound plans in 未分类 column", () => {
+  it("shows completed plans when all statuses are selected", () => {
+    useAppStore.setState({
+      plans: [
+        planWithStep({ id: "active-plan", title: "进行中任务" }),
+        planWithStep({ id: "completed-plan", title: "已完成任务", status: "completed" }),
+      ],
+    });
+
+    renderPage();
+
+    expect(screen.getByText("进行中任务")).toBeInTheDocument();
+    expect(screen.getByText("已完成任务")).toBeInTheDocument();
+  });
+
+  it("places unbound plans in 未加入工作流 column", () => {
     renderPage();
 
     expect(screen.getByText("无流程任务")).toBeInTheDocument();
+  });
+
+  it("shows only completed plans when the status filter is explicit", () => {
+    useAppStore.setState({
+      selectedStatus: "completed",
+      plans: [
+        planWithStep({ id: "active-plan", title: "进行中任务" }),
+        planWithStep({ id: "completed-plan", title: "已完成任务", status: "completed" }),
+      ],
+    });
+
+    renderPage();
+
+    expect(screen.getByText("已完成任务")).toBeInTheDocument();
+    expect(screen.queryByText("进行中任务")).not.toBeInTheDocument();
   });
 
   it("updates plan step when dropped to different column", async () => {
@@ -142,31 +184,33 @@ describe("KanbanPage", () => {
 
   // ── Regression matrix (per architect review) ──
 
-  // ① 0 templates + unbound plans → kanban renders with 未分类 column
-  it("renders kanban with 未分类 column when no workflows exist", () => {
+  // ① 0 templates + unbound plans → kanban renders with 未加入工作流 column
+  it("renders kanban with 未加入工作流 column when no workflows exist", () => {
     useAppStore.setState({
       tagWorkflows: [],
-      plans: [makePlan({ id: "p-null", title: "无工作流计划", tag_workflow_id: null, status: "active" })],
+      plans: [
+        makePlan({ id: "p-null", title: "无工作流计划", tag_workflow_id: null, status: "active" }),
+      ],
     });
 
     renderPage();
 
     // Must NOT show empty state message
     expect(screen.queryByText(/暂无工作流/)).not.toBeInTheDocument();
-    // Must render 未分类 column
-    expect(screen.getByText("未分类")).toBeInTheDocument();
+    // Must render 未加入工作流 column
+    expect(screen.getByText("未加入工作流")).toBeInTheDocument();
     // Unbound plan must be visible
     expect(screen.getByText("无工作流计划")).toBeInTheDocument();
   });
 
-  // ② 0 templates + no plans → empty 未分类 column still rendered
-  it("renders empty 未分类 column when no workflows and no plans", async () => {
+  // ② 0 templates + no plans → empty 未加入工作流 column still rendered
+  it("renders empty 未加入工作流 column when no workflows and no plans", async () => {
     useAppStore.setState({ tagWorkflows: [], plans: [] });
 
     renderPage();
 
     // Wait for the loading → kanban transition
-    await screen.findByText("未分类");
+    await screen.findByText("未加入工作流");
     // Count badges should show 0 (multiple columns have count 0)
     const zeros = screen.getAllByText("0");
     expect(zeros.length).toBeGreaterThan(0);
@@ -180,9 +224,27 @@ describe("KanbanPage", () => {
     useAppStore.setState({
       tagWorkflows: [wf, wfB],
       plans: [
-        makePlan({ id: "pa-1", title: "A需求", tag_workflow_id: "wf-1", current_step_index: 0, status: "active" }),
-        makePlan({ id: "pb-1", title: "B预习", tag_workflow_id: "wf-2", current_step_index: 0, status: "active" }),
-        makePlan({ id: "pu-1", title: "自由任务", tag_workflow_id: null, current_step_index: 0, status: "active" }),
+        makePlan({
+          id: "pa-1",
+          title: "A需求",
+          tag_workflow_id: "wf-1",
+          current_step_index: 0,
+          status: "active",
+        }),
+        makePlan({
+          id: "pb-1",
+          title: "B预习",
+          tag_workflow_id: "wf-2",
+          current_step_index: 0,
+          status: "active",
+        }),
+        makePlan({
+          id: "pu-1",
+          title: "自由任务",
+          tag_workflow_id: null,
+          current_step_index: 0,
+          status: "active",
+        }),
       ],
     });
 
@@ -190,20 +252,32 @@ describe("KanbanPage", () => {
 
     // A's step plans visible
     expect(screen.getByText("A需求")).toBeInTheDocument();
-    // Unbound plan visible in 未分类
+    // Unbound plan visible in 未加入工作流
     expect(screen.getByText("自由任务")).toBeInTheDocument();
     // B's plan NOT visible (not in A's view)
     expect(screen.queryByText("B预习")).not.toBeInTheDocument();
   });
 
-  // ④ Plans bound to B do NOT appear in A's 未分类 column
+  // ④ Plans bound to B do NOT appear in A's 未加入工作流 column
   it("does not show workflow B plans in workflow A's 未分類 column", () => {
-    // Same setup as ③, but verify B's plan is neither in step columns nor in 未分类
+    // Same setup as ③, but verify B's plan is neither in step columns nor in 未加入工作流
     useAppStore.setState({
       tagWorkflows: [wf, wfB],
       plans: [
-        makePlan({ id: "pa-1", title: "A需求", tag_workflow_id: "wf-1", current_step_index: 0, status: "active" }),
-        makePlan({ id: "pb-2", title: "B复习", tag_workflow_id: "wf-2", current_step_index: 2, status: "active" }),
+        makePlan({
+          id: "pa-1",
+          title: "A需求",
+          tag_workflow_id: "wf-1",
+          current_step_index: 0,
+          status: "active",
+        }),
+        makePlan({
+          id: "pb-2",
+          title: "B复习",
+          tag_workflow_id: "wf-2",
+          current_step_index: 2,
+          status: "active",
+        }),
       ],
     });
 
@@ -211,12 +285,12 @@ describe("KanbanPage", () => {
 
     // A's plan in step column
     expect(screen.getByText("A需求")).toBeInTheDocument();
-    // 未分类 column exists
-    expect(screen.getByText("未分类")).toBeInTheDocument();
-    // 未分类 should be empty — contains neither the null-workflow plan (none) nor B's plan
+    // 未加入工作流 column exists
+    expect(screen.getByText("未加入工作流")).toBeInTheDocument();
+    // 未加入工作流 should be empty — contains neither the null-workflow plan (none) nor B's plan
     expect(screen.queryByText("B复习")).not.toBeInTheDocument();
-    // 未分类 column count should be 0
-    const unclassifiedSection = screen.getByText("未分类").closest("div")!;
+    // 未加入工作流 column count should be 0
+    const unclassifiedSection = screen.getByText("未加入工作流").closest("div")!;
     expect(unclassifiedSection.textContent).toContain("0");
   });
 
@@ -242,7 +316,7 @@ describe("KanbanPage", () => {
     for (const s of ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"]) {
       expect(await screen.findByText(s)).toBeInTheDocument();
     }
-    expect(screen.getByText("未分类")).toBeInTheDocument();
+    expect(screen.getByText("未加入工作流")).toBeInTheDocument();
   });
 });
 
@@ -272,7 +346,7 @@ describe("KanbanPage drag to advance step", () => {
     const step0 = findColumnByTitle("需求");
     const step1 = findColumnByTitle("设计");
     const step2 = findColumnByTitle("开发");
-    const unclassified = findColumnByTitle("未分类");
+    const unclassified = findColumnByTitle("未加入工作流");
     expect(step0).not.toBeNull();
     expect(step1).not.toBeNull();
     expect(step2).not.toBeNull();
@@ -297,7 +371,7 @@ describe("KanbanPage drag to advance step", () => {
     );
   });
 
-  it("drags a plan card back to 未分类 and detaches its workflow", async () => {
+  it("drags a plan card back to 未加入工作流 and detaches its workflow", async () => {
     mockedApi.updatePlan.mockResolvedValueOnce(
       makePlan({ id: "plan-1", title: "需求任务", tag_workflow_id: null, current_step_index: 0 }),
     );
@@ -308,7 +382,7 @@ describe("KanbanPage drag to advance step", () => {
 
     const step0 = findColumnByTitle("需求");
     const step1 = findColumnByTitle("设计");
-    const unclassified = findColumnByTitle("未分类");
+    const unclassified = findColumnByTitle("未加入工作流");
     expect(step0).not.toBeNull();
     expect(step1).not.toBeNull();
     expect(unclassified).not.toBeNull();
@@ -320,7 +394,7 @@ describe("KanbanPage drag to advance step", () => {
     setOverlayRect({ x: 10, y: 10, width: 130, height: 80 });
 
     const card = screen.getByTestId("plan-card-plan-1");
-    // Drop far to the right, over the 未分类 column (center x=525).
+    // Drop far to the right, over the 未加入工作流 column (center x=525).
     await dragPointer(card, { x: 50, y: 50 }, { x: 525, y: 100 });
 
     await waitFor(() =>

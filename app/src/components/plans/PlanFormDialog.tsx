@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import { CalendarIcon, X, ChevronDown, ChevronUp } from "lucide-react";
-import { toPlanFormValues, type PlanFormValues, type PeriodType } from "@/lib/planForm";
+import { toPlanFormValues, type PlanFormValues } from "@/lib/planForm";
 import { parseQuickCaptureInput } from "@/lib/quickCapture";
 import { fromDateInputValue, toDateInputValue, formatDdl } from "@/lib/date";
 import { useAppStore } from "@/store/useAppStore";
@@ -32,6 +32,7 @@ interface PlanFormDialogProps {
   onOpenChange: (open: boolean) => void;
   /** 传入计划表示编辑模式；null 表示新建 */
   plan: Plan | null;
+  defaultTitle?: string;
 }
 
 const DEFAULT_VALUES: PlanFormValues = {
@@ -46,7 +47,7 @@ const DEFAULT_VALUES: PlanFormValues = {
   tagWorkflowId: null,
 };
 
-export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
+export function PlanFormDialog({ onOpenChange, plan, defaultTitle }: PlanFormDialogProps) {
   const categories = useAppStore((s) => s.categories);
   const tagWorkflows = useAppStore((s) => s.tagWorkflows);
   const addPlan = useAppStore((s) => s.addPlan);
@@ -56,7 +57,7 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
 
   // 父组件仅在打开时挂载本对话框，状态直接从 plan 惰性初始化，天然实现表单重置
   const [values, setValues] = useState<PlanFormValues>(() =>
-    plan ? toPlanFormValues(plan) : DEFAULT_VALUES,
+    plan ? toPlanFormValues(plan) : { ...DEFAULT_VALUES, title: defaultTitle ?? "" },
   );
   const [errors, setErrors] = useState<{ title?: string }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -192,9 +193,7 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
               value={values.title}
               onChange={(e) => set("title", e.target.value)}
               placeholder={
-                showAdvanced
-                  ? "计划标题"
-                  : "输入标题 (支持 分类：标题 或 【优先级】标题)"
+                showAdvanced ? "计划标题" : "输入标题 (支持 分类：标题 或 【优先级】标题)"
               }
               aria-invalid={!!errors.title}
             />
@@ -311,7 +310,7 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>DDL</Label>
+                <Label>截止日期</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -345,39 +344,6 @@ export function PlanFormDialog({ onOpenChange, plan }: PlanFormDialogProps) {
                   </PopoverContent>
                 </Popover>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="plan-period-type">计划周期</Label>
-                <Select
-                  value={values.periodType ?? "none"}
-                  onValueChange={(v) =>
-                    set("periodType", v === "none" ? null : (v as PeriodType))
-                  }
-                >
-                  <SelectTrigger id="plan-period-type" className="w-full" aria-label="计划周期">
-                    <SelectValue placeholder="选择周期" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">无</SelectItem>
-                    <SelectItem value="daily">日度</SelectItem>
-                    <SelectItem value="monthly">月度</SelectItem>
-                    <SelectItem value="quarterly">季度</SelectItem>
-                    <SelectItem value="yearly">年度</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {values.periodType && (
-                <div className="space-y-2">
-                  <Label htmlFor="plan-period-value">周期值</Label>
-                  <Input
-                    id="plan-period-value"
-                    value={values.periodValue}
-                    onChange={(e) => set("periodValue", e.target.value)}
-                    placeholder="如 2026-08、2026-Q3、2026"
-                  />
-                </div>
-              )}
             </>
           )}
 

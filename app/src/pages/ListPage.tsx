@@ -36,7 +36,7 @@ const SORT_COLUMNS: { key: PlanSortKey; label: string }[] = [
 ];
 
 const STATUS_LABELS: Record<PlanStatus, string> = {
-  active: "活跃",
+  active: "进行中",
   completed: "已完成",
   cancelled: "已取消",
 };
@@ -176,8 +176,7 @@ export default function ListPage() {
   async function handleToggleStatus(plan: Plan) {
     // Cancelled plans should not be silently resurrected via toggle
     if (plan.status === "cancelled") return;
-    const nextStatus: PlanStatus =
-      plan.status === "active" ? "completed" : "active";
+    const nextStatus: PlanStatus = plan.status === "active" ? "completed" : "active";
     try {
       await editPlan({ id: plan.id, status: nextStatus });
     } catch {
@@ -205,7 +204,10 @@ export default function ListPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">列表视图</h2>
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-2xl font-bold tracking-tight">列表视图</h2>
+          <span className="text-sm text-muted-foreground">共 {filteredPlans.length} 项</span>
+        </div>
         <div className="flex items-center gap-2">
           {selected.size > 0 && (
             <div data-testid="batch-bar" className="flex items-center gap-2">
@@ -379,9 +381,7 @@ export default function ListPage() {
                                 />
                                 {c.name}
                               </span>
-                              {plan.category_id === c.id && (
-                                <Check className="ml-auto h-4 w-4" />
-                              )}
+                              {plan.category_id === c.id && <Check className="ml-auto h-4 w-4" />}
                             </DropdownMenuItem>
                           ))}
                         </DropdownMenuContent>

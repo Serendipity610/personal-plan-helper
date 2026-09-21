@@ -3,7 +3,9 @@ import {
   DndContext,
   DragOverlay,
   closestCorners,
+  KeyboardSensor,
   PointerSensor,
+  defaultKeyboardCoordinateGetter,
   useSensor,
   useSensors,
   useDroppable,
@@ -11,13 +13,15 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
+import { filterPlans } from "@/lib/filters";
 import { useAppStore, parseWorkflowSteps } from "@/store/useAppStore";
 import { PlanCard, PlanCardOverlay } from "@/components/plans/PlanCard";
 import { PlanFormDialog } from "@/components/plans/PlanFormDialog";
 import { DeletePlanDialog } from "@/components/plans/DeletePlanDialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Plan } from "@/types";
+import type { Category, Plan, PlanStatus, TagWorkflow } from "@/types";
+import type { PlanCardActions } from "@/components/plans/PlanCard";
 
 /** Group plans by step index (or null for unbound) */
 interface ColumnData {
@@ -27,7 +31,21 @@ interface ColumnData {
 }
 
 /** A single droppable kanban column */
-function KanbanColumn({ col }: { col: ColumnData }) {
+interface KanbanColumnProps {
+  col: ColumnData;
+  categoryById: Map<string, Category>;
+  workflowById: Map<string, TagWorkflow>;
+  actions: PlanCardActions;
+  onStepChange: (plan: Plan, newIndex: number) => void;
+}
+
+function KanbanColumn({
+  col,
+  categoryById,
+  workflowById,
+  actions,
+  onStepChange,
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
 
   return (
@@ -45,12 +63,17 @@ function KanbanColumn({ col }: { col: ColumnData }) {
       </div>
       <div className="flex-1 space-y-2 p-2 overflow-y-auto">
         {col.plans.map((plan) => (
-          <KanbanPlanCard key={plan.id} plan={plan} />
+          <KanbanPlanCard
+            key={plan.id}
+            plan={plan}
+            category={categoryById.get(plan.category_id ?? "")}
+            workflow={plan.tag_workflow_id ? workflowById.get(plan.tag_workflow_id) : undefined}
+            actions={actions}
+            onStepChange={onStepChange}
+          />
         ))}
         {col.plans.length === 0 && (
-          <p className="p-3 text-center text-xs text-muted-foreground">
-            暂无计划
-          </p>
+          <p className="p-3 text-center text-xs text-muted-foreground">暂无计划</p>
         )}
       </div>
     </div>
@@ -58,25 +81,22 @@ function KanbanColumn({ col }: { col: ColumnData }) {
 }
 
 /** Plan card within kanban (not directly draggable — the column is droppable, cards are dragged from PlanCard's useDraggable) */
-function KanbanPlanCard({ plan }: { plan: Plan }) {
-  const categories = useAppStore((s) => s.categories);
-  const tagWorkflows = useAppStore((s) => s.tagWorkflows);
-  const editPlan = useAppStore((s) => s.editPlan);
+interface KanbanPlanCardProps {
+  plan: Plan;
+  category: Category | undefined;
+  workflow: TagWorkflow | undefined;
+  actions: PlanCardActions;
+  onStepChange: (plan: Plan, newIndex: number) => void;
+}
 
-  const category = categories.find((c) => c.id === plan.category_id);
-  const workflow = plan.tag_workflow_id
-    ? tagWorkflows.find((w) => w.id === plan.tag_workflow_id) ?? undefined
-    : undefined;
-
+function KanbanPlanCard({ plan, category, workflow, actions, onStepChange }: KanbanPlanCardProps) {
   return (
     <PlanCard
       plan={plan}
       category={category}
       workflow={workflow}
-      onEdit={() => {}}
-      onDelete={() => {}}
-      onToggleStatus={() => {}}
-      onStepChange={(p, newIndex) => editPlan({ id: p.id, current_step_index: newIndex })}
+      {...actions}
+      onStepChange={onStepChange}
     />
   );
 }
@@ -103,6 +123,9 @@ export default function KanbanPage() {
   const plans = useAppStore((s) => s.plans);
   const categories = useAppStore((s) => s.categories);
   const tagWorkflows = useAppStore((s) => s.tagWorkflows);
+  const selectedCategoryId = useAppStore((s) => s.selectedCategoryId);
+  const selectedStatus = useAppStore((s) => s.selectedStatus);
+  const selectedTimeRange = useAppStore((s) => s.selectedTimeRange);
   const editPlan = useAppStore((s) => s.editPlan);
   const removePlan = useAppStore((s) => s.removePlan);
   const loading = useAppStore((s) => s.loading);
@@ -111,8 +134,7 @@ export default function KanbanPage() {
 
   // Track user's explicit selection; derive effective ID (auto-first when unset)
   const [userSelectedWorkflowId, setUserSelectedWorkflowId] = useState<string | null>(null);
-  const selectedWorkflowId: string | null =
-    userSelectedWorkflowId ?? tagWorkflows[0]?.id ?? null;
+  const selectedWorkflowId: string | null = userSelectedWorkflowId ?? tagWorkflows[0]?.id ?? null;
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -130,33 +152,51 @@ export default function KanbanPage() {
 
   const steps = useMemo(() => parseWorkflowSteps(selectedWorkflow), [selectedWorkflow]);
 
+  const filteredPlans = useMemo(
+    () =>
+      filterPlans(plans, {
+        categoryId: selectedCategoryId,
+        status: selectedStatus,
+        timeRange: selectedTimeRange,
+      }),
+    [plans, selectedCategoryId, selectedStatus, selectedTimeRange],
+  );
+
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
+  const workflowById = useMemo(
+    () => new Map(tagWorkflows.map((workflow) => [workflow.id, workflow])),
+    [tagWorkflows],
+  );
+
   // Build columns
   const columns = useMemo((): ColumnData[] => {
-    const activePlans = plans.filter((p) => p.status === "active");
-
     if (!selectedWorkflow) {
       // No workflow selected — show all unbound plans in one column
-      const unbound = activePlans.filter((p) => !p.tag_workflow_id);
-      return [{ key: "unclassified", title: "未分类", plans: unbound }];
+      const unbound = filteredPlans.filter((p) => !p.tag_workflow_id);
+      return [{ key: "unclassified", title: "未加入工作流", plans: unbound }];
     }
 
     const cols: ColumnData[] = steps.map((step, index) => ({
       key: `step-${index}`,
       title: step,
-      plans: activePlans.filter(
+      plans: filteredPlans.filter(
         (p) => p.tag_workflow_id === selectedWorkflow.id && p.current_step_index === index,
       ),
     }));
 
     // Add 未分类 column for plans with no workflow binding
-    const unbound = activePlans.filter((p) => !p.tag_workflow_id);
-    cols.push({ key: "unclassified", title: "未分类", plans: unbound });
+    const unbound = filteredPlans.filter((p) => !p.tag_workflow_id);
+    cols.push({ key: "unclassified", title: "未加入工作流", plans: unbound });
 
     return cols;
-  }, [plans, selectedWorkflow, steps]);
+  }, [filteredPlans, selectedWorkflow, steps]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: defaultKeyboardCoordinateGetter }),
   );
 
   function handleDragStart(event: DragStartEvent) {
@@ -205,9 +245,17 @@ export default function KanbanPage() {
     }
   }
 
-  function getCategory(id: string | null) {
-    if (!id) return undefined;
-    return categories.find((c) => c.id === id);
+  function openEditDialog(plan: Plan) {
+    setEditingPlan(plan);
+    setFormOpen(true);
+  }
+
+  async function handleToggleStatus(plan: Plan, status: PlanStatus) {
+    try {
+      await editPlan({ id: plan.id, status });
+    } catch {
+      // keep current state
+    }
   }
 
   function handleStepChange(plan: Plan, newIndex: number) {
@@ -216,12 +264,22 @@ export default function KanbanPage() {
 
   async function handleConfirmDelete(plan: Plan) {
     setDeletingPlan(null);
+    if (editingPlan?.id === plan.id) {
+      setEditingPlan(null);
+      setFormOpen(false);
+    }
     try {
       await removePlan(plan.id);
     } catch {
       // keep current state
     }
   }
+
+  const cardActions: PlanCardActions = {
+    onEdit: openEditDialog,
+    onDelete: setDeletingPlan,
+    onToggleStatus: handleToggleStatus,
+  };
 
   return (
     <div className="space-y-4">
@@ -240,7 +298,13 @@ export default function KanbanPage() {
               </option>
             ))}
           </select>
-          <Button onClick={() => { setEditingPlan(null); setFormOpen(true); }} size="sm">
+          <Button
+            onClick={() => {
+              setEditingPlan(null);
+              setFormOpen(true);
+            }}
+            size="sm"
+          >
             <Plus className="mr-1 h-4 w-4" />
             新建计划
           </Button>
@@ -258,10 +322,19 @@ export default function KanbanPage() {
         >
           <div
             className="grid gap-4"
-            style={{ gridTemplateColumns: `repeat(${Math.min(columns.length, 7)}, minmax(200px, 1fr))` }}
+            style={{
+              gridTemplateColumns: `repeat(${Math.min(columns.length, 7)}, minmax(200px, 1fr))`,
+            }}
           >
             {columns.map((col) => (
-              <KanbanColumn key={col.key} col={col} />
+              <KanbanColumn
+                key={col.key}
+                col={col}
+                categoryById={categoryById}
+                workflowById={workflowById}
+                actions={cardActions}
+                onStepChange={handleStepChange}
+              />
             ))}
           </div>
 
@@ -269,8 +342,12 @@ export default function KanbanPage() {
             {activePlan && (
               <PlanCardOverlay
                 plan={activePlan}
-                category={getCategory(activePlan.category_id)}
-                workflow={selectedWorkflow ?? undefined}
+                category={categoryById.get(activePlan.category_id ?? "")}
+                workflow={
+                  activePlan.tag_workflow_id
+                    ? workflowById.get(activePlan.tag_workflow_id)
+                    : undefined
+                }
                 onStepChange={handleStepChange}
               />
             )}

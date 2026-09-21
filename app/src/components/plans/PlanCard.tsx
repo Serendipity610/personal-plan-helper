@@ -52,9 +52,15 @@ function parseSteps(workflow?: TagWorkflow): string[] {
   }
 }
 
-function PlanCardContent({ plan, category, actions, workflowSteps, onStepChange }: PlanCardContentProps) {
+function PlanCardContent({
+  plan,
+  category,
+  actions,
+  workflowSteps,
+  onStepChange,
+}: PlanCardContentProps) {
   const hasSteps = workflowSteps && workflowSteps.length > 0;
-  const currentStep = hasSteps ? workflowSteps[plan.current_step_index] ?? "" : "";
+  const currentStep = hasSteps ? (workflowSteps[plan.current_step_index] ?? "") : "";
   const isFirst = plan.current_step_index === 0;
   const isLast = hasSteps ? plan.current_step_index >= workflowSteps.length - 1 : true;
 
@@ -114,25 +120,26 @@ function PlanCardContent({ plan, category, actions, workflowSteps, onStepChange 
             {category.name}
           </span>
         )}
-        {plan.ddl && (() => {
-          const ddlInfo = getDdlStatus(plan.ddl);
-          return (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <CalendarDays className="h-3 w-3" />
-              {formatDdl(plan.ddl)}
-              {ddlInfo.status !== "normal" && (
-                <span
-                  className={cn(
-                    "ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
-                    DDL_BADGE_STYLES[ddlInfo.status],
-                  )}
-                >
-                  {ddlInfo.label}
-                </span>
-              )}
-            </span>
-          );
-        })()}
+        {plan.ddl &&
+          (() => {
+            const ddlInfo = getDdlStatus(plan.ddl);
+            return (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <CalendarDays className="h-3 w-3" />
+                {formatDdl(plan.ddl)}
+                {ddlInfo.status !== "normal" && (
+                  <span
+                    className={cn(
+                      "ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
+                      DDL_BADGE_STYLES[ddlInfo.status],
+                    )}
+                  >
+                    {ddlInfo.label}
+                  </span>
+                )}
+              </span>
+            );
+          })()}
       </div>
       {hasSteps && onStepChange && (
         <div className="mt-2 flex items-center gap-1.5">
@@ -177,7 +184,15 @@ function PlanCardContent({ plan, category, actions, workflowSteps, onStepChange 
 }
 
 /** 矩阵中的可拖拽计划卡片；点击卡片进入编辑 */
-export function PlanCard({ plan, category, workflow, onEdit, onDelete, onToggleStatus, onStepChange }: PlanCardProps) {
+export function PlanCard({
+  plan,
+  category,
+  workflow,
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  onStepChange,
+}: PlanCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: plan.id });
   const workflowSteps = parseSteps(workflow);
 
@@ -186,9 +201,18 @@ export function PlanCard({ plan, category, workflow, onEdit, onDelete, onToggleS
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      tabIndex={0}
+      role="button"
       aria-label={`编辑计划 ${plan.title}`}
       data-testid={`plan-card-${plan.id}`}
       onClick={() => onEdit(plan)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onEdit(plan);
+        }
+      }}
       className={cn(
         "cursor-grab rounded-lg border bg-card p-3 shadow-sm transition-colors",
         "hover:border-primary/40 hover:shadow",
